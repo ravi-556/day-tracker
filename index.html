@@ -56,18 +56,24 @@
     width:100%; font-family:inherit; font-size:0.98rem; color:var(--ink); background:var(--paper);
     border:1px solid var(--line); border-radius:8px; padding:11px 12px;
   }
-  textarea{ resize:vertical; }
+  input[type="text"], input[type="password"], select{ height:44px; }
+  textarea{ resize:vertical; min-height:88px; line-height:1.4; }
+  select{
+    appearance:none; -webkit-appearance:none; -moz-appearance:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path d='M5 8l5 5 5-5' fill='none' stroke='%237c8880' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat:no-repeat; background-position:right 12px center; background-size:14px; padding-right:34px;
+  }
   .field{ display:flex; flex-direction:column; gap:6px; }
   .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
   .row .field{ flex:1 1 220px; }
   button.primary{
     font-family:inherit; font-weight:600; font-size:0.94rem; background:var(--moss); color:var(--paper);
-    border:none; border-radius:8px; padding:11px 18px; cursor:pointer; flex:none;
+    border:none; border-radius:8px; padding:0 18px; height:44px; cursor:pointer; flex:none;
   }
   button.primary:hover{ background:var(--moss-deep); }
   button.ghost{
     font-family:inherit; font-size:0.88rem; background:none; border:1px solid var(--line); color:var(--ink-soft);
-    border-radius:8px; padding:9px 14px; cursor:pointer;
+    border-radius:8px; padding:0 14px; height:44px; cursor:pointer;
   }
   button.ghost:hover{ color:var(--ink); border-color:var(--moss); }
   .notice{ font-size:0.88rem; padding:12px 14px; border-radius:8px; background:var(--clay-soft); color:var(--clay); border:1px solid transparent; }
@@ -131,8 +137,6 @@
   .task-row-date{ font-size:0.76rem; color:var(--ink-soft); }
   .task-row select{ width:auto; flex:none; }
 
-  .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; padding:20px; z-index:50; }
-  .modal-panel{ max-width:520px; width:100%; max-height:82vh; overflow-y:auto; }
   .history-item{ font-size:0.85rem; padding:7px 0; border-bottom:1px solid var(--line); color:var(--ink-soft); }
   .history-item:last-child{ border-bottom:none; }
   .history-item b{ color:var(--ink); font-weight:500; }
@@ -193,59 +197,92 @@
     </div>
 
     <div id="tasksView" hidden>
-      <div class="panel">
-        <h2>Add a task</h2>
-        <div class="row">
-          <div class="field" style="flex:2 1 240px;">
+      <div id="taskListPage">
+        <div class="panel">
+          <div class="row" style="justify-content:space-between;">
+            <div class="row" style="gap:20px;">
+              <div class="seg-group">
+                <label>Show</label>
+                <div class="seg-buttons" id="scopeFilter">
+                  <button type="button" class="seg-btn" data-scope="month" aria-pressed="true">This month</button>
+                  <button type="button" class="seg-btn" data-scope="all" aria-pressed="false">All time</button>
+                </div>
+              </div>
+              <div class="seg-group">
+                <label>Status</label>
+                <div class="seg-buttons" id="statusFilter">
+                  <button type="button" class="seg-btn" data-status="not_started" aria-pressed="true">Open</button>
+                  <button type="button" class="seg-btn" data-status="in_progress" aria-pressed="true">In progress</button>
+                  <button type="button" class="seg-btn" data-status="paused" aria-pressed="true">Paused</button>
+                  <button type="button" class="seg-btn" data-status="completed" aria-pressed="true">Completed</button>
+                </div>
+              </div>
+            </div>
+            <button class="primary" id="createTaskBtn" type="button">+ Create task</button>
+          </div>
+        </div>
+        <div class="panel" style="margin-top:16px;">
+          <div id="taskPageList"></div>
+        </div>
+      </div>
+
+      <div id="taskCreatePage" class="narrow" hidden>
+        <div class="panel">
+          <div class="row" style="justify-content:space-between; align-items:flex-start;">
+            <h2 style="margin:0;">Create task</h2>
+            <button class="ghost" id="cancelCreateBtn" type="button">&larr; Back</button>
+          </div>
+          <div class="field" style="margin-top:12px;">
             <label for="newTaskName">Task name</label>
             <input id="newTaskName" type="text" placeholder="e.g. Refactor billing module">
           </div>
-          <div class="field" style="flex:2 1 240px;">
-            <label for="newTaskDesc">Description (optional)</label>
-            <input id="newTaskDesc" type="text" placeholder="Extra detail">
+          <div class="field" style="margin-top:12px;">
+            <label for="newTaskDesc">Description</label>
+            <textarea id="newTaskDesc" rows="5" placeholder="Extra detail, notes, links…"></textarea>
           </div>
-          <div class="field" style="flex:1 1 160px;">
-            <label for="newTaskStatus">Status</label>
-            <select id="newTaskStatus">
-              <option value="not_started" selected>Open</option>
-              <option value="in_progress">In progress</option>
-              <option value="paused">Paused</option>
-              <option value="completed">Completed</option>
-            </select>
-          </div>
-          <div class="field" style="flex:1 1 160px;">
-            <label for="newTaskParent">Parent task</label>
-            <select id="newTaskParent">
-              <option value="">No parent (top-level)</option>
-            </select>
-          </div>
-          <button class="primary" id="addTaskBtn" type="button">Add task</button>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="row">
-          <div class="seg-group">
-            <label>Show</label>
-            <div class="seg-buttons" id="scopeFilter">
-              <button type="button" class="seg-btn" data-scope="month" aria-pressed="true">This month</button>
-              <button type="button" class="seg-btn" data-scope="all" aria-pressed="false">All time</button>
+          <div class="row" style="margin-top:12px;">
+            <div class="field">
+              <label for="newTaskStatus">Status</label>
+              <select id="newTaskStatus">
+                <option value="not_started" selected>Open</option>
+                <option value="in_progress">In progress</option>
+                <option value="paused">Paused</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="newTaskParent">Parent task</label>
+              <select id="newTaskParent">
+                <option value="">No parent (top-level)</option>
+              </select>
             </div>
           </div>
-          <div class="seg-group">
-            <label>Status</label>
-            <div class="seg-buttons" id="statusFilter">
-              <button type="button" class="seg-btn" data-status="not_started" aria-pressed="true">Open</button>
-              <button type="button" class="seg-btn" data-status="in_progress" aria-pressed="true">In progress</button>
-              <button type="button" class="seg-btn" data-status="paused" aria-pressed="true">Paused</button>
-              <button type="button" class="seg-btn" data-status="completed" aria-pressed="true">Completed</button>
-            </div>
+          <div class="row" style="margin-top:16px;">
+            <button class="primary" id="addTaskBtn" type="button">Save task</button>
           </div>
         </div>
       </div>
 
-      <div class="panel">
-        <div id="taskPageList"></div>
+      <div id="taskDetailPage" class="narrow" hidden>
+        <div class="panel">
+          <div class="row" style="justify-content:space-between; align-items:flex-start;">
+            <h2 id="detailName" style="margin:0;"></h2>
+            <button class="ghost" id="backFromDetailBtn" type="button">&larr; Back</button>
+          </div>
+          <p class="task-row-date" id="detailMeta"></p>
+          <div class="field" style="margin-top:10px;">
+            <label for="detailStatus">Status</label>
+            <select id="detailStatus"></select>
+          </div>
+          <div class="field" style="margin-top:12px;">
+            <label for="detailDescription">Description</label>
+            <textarea id="detailDescription" rows="5" placeholder="Add detail…"></textarea>
+          </div>
+          <div style="margin-top:16px;">
+            <label>History</label>
+            <div id="detailHistory" style="margin-top:6px;"></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -255,28 +292,6 @@
   </section>
 
   <footer>Your events, your Sheet, your Google account only.</footer>
-</div>
-
-<div class="modal-overlay" id="taskDetailOverlay" hidden>
-  <div class="panel modal-panel">
-    <div class="row" style="justify-content:space-between; align-items:flex-start;">
-      <h2 id="detailName" style="margin:0;"></h2>
-      <button class="ghost" id="closeDetailBtn" type="button">Close</button>
-    </div>
-    <p class="task-row-date" id="detailMeta"></p>
-    <div class="field" style="margin-top:10px;">
-      <label for="detailStatus">Status</label>
-      <select id="detailStatus"></select>
-    </div>
-    <div class="field" style="margin-top:12px;">
-      <label for="detailDescription">Description</label>
-      <textarea id="detailDescription" rows="3" placeholder="Add detail…"></textarea>
-    </div>
-    <div style="margin-top:16px;">
-      <label>History</label>
-      <div id="detailHistory" style="margin-top:6px;"></div>
-    </div>
-  </div>
 </div>
 
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -314,13 +329,17 @@
   const newTaskDesc = document.getElementById('newTaskDesc');
   const newTaskStatus = document.getElementById('newTaskStatus');
   const newTaskParent = document.getElementById('newTaskParent');
-  const taskDetailOverlay = document.getElementById('taskDetailOverlay');
+  const taskListPage = document.getElementById('taskListPage');
+  const taskCreatePage = document.getElementById('taskCreatePage');
+  const taskDetailPage = document.getElementById('taskDetailPage');
+  const createTaskBtn = document.getElementById('createTaskBtn');
+  const cancelCreateBtn = document.getElementById('cancelCreateBtn');
+  const backFromDetailBtn = document.getElementById('backFromDetailBtn');
   const detailName = document.getElementById('detailName');
   const detailMeta = document.getElementById('detailMeta');
   const detailStatus = document.getElementById('detailStatus');
   const detailDescription = document.getElementById('detailDescription');
   const detailHistory = document.getElementById('detailHistory');
-  const closeDetailBtn = document.getElementById('closeDetailBtn');
 
   let tokenClient = null;
   let accessToken = null;
@@ -491,7 +510,7 @@
     tasksView.hidden = which !== 'tasks';
     historyView.hidden = which !== 'history';
     if(which === 'history') renderHistory();
-    if(which === 'tasks') renderTasksPage();
+    if(which === 'tasks') showTaskListPage();
   }
   todayTab.addEventListener('click', function(){ selectTab('today'); });
   tasksTab.addEventListener('click', function(){ selectTab('tasks'); });
@@ -756,7 +775,21 @@
     return Promise.resolve();
   }
 
-  // ---------- Task detail modal ----------
+  // ---------- Task pages (list / create / detail) ----------
+
+  function showTaskListPage(){
+    taskListPage.hidden = false;
+    taskCreatePage.hidden = true;
+    taskDetailPage.hidden = true;
+    renderTasksPage();
+  }
+
+  function showTaskCreatePage(){
+    taskListPage.hidden = true;
+    taskCreatePage.hidden = false;
+    taskDetailPage.hidden = true;
+    populateParentSelect();
+  }
 
   function renderDetailHistory(task){
     const entries = (taskHistoryByTaskId[task.id] || []).slice()
@@ -771,7 +804,11 @@
     }).join('');
   }
 
-  function openTaskDetail(task){
+  function showTaskDetailPage(task){
+    taskListPage.hidden = true;
+    taskCreatePage.hidden = true;
+    taskDetailPage.hidden = false;
+
     detailName.textContent = task.name;
     detailMeta.textContent = 'Created ' + (task.createdAt ? new Date(task.createdAt).toLocaleString() : '') +
       (task.parentId && tasksById[task.parentId] ? ' · Subtask of ' + tasksById[task.parentId].name : '');
@@ -780,14 +817,12 @@
     }).join('');
     detailDescription.value = task.description || '';
     renderDetailHistory(task);
-    taskDetailOverlay.hidden = false;
 
     detailStatus.onchange = function(e){
       updateTaskStatus(task, e.target.value).then(function(){
         return maybeCompleteParent(task);
       }).then(function(){
         renderDetailHistory(task);
-        renderTasksPage();
         renderChipsEverywhere();
       });
     };
@@ -800,10 +835,14 @@
     };
   }
 
-  closeDetailBtn.addEventListener('click', function(){ taskDetailOverlay.hidden = true; });
-  taskDetailOverlay.addEventListener('click', function(e){
-    if(e.target === taskDetailOverlay) taskDetailOverlay.hidden = true;
+  createTaskBtn.addEventListener('click', showTaskCreatePage);
+  cancelCreateBtn.addEventListener('click', function(){
+    newTaskName.value = '';
+    newTaskDesc.value = '';
+    newTaskStatus.value = 'not_started';
+    showTaskListPage();
   });
+  backFromDetailBtn.addEventListener('click', showTaskListPage);
 
   // ---------- Tasks page ----------
 
@@ -830,7 +869,7 @@
       '<select>' + STATUS_ORDER.map(function(s){
         return '<option value="' + s + '"' + (s === t.status ? ' selected' : '') + '>' + STATUS_LABELS[s] + '</option>';
       }).join('') + '</select>';
-    row.querySelector('.task-row-name').addEventListener('click', function(){ openTaskDetail(t); });
+    row.querySelector('.task-row-name').addEventListener('click', function(){ showTaskDetailPage(t); });
     row.querySelector('select').addEventListener('change', function(e){
       updateTaskStatus(t, e.target.value).then(function(){
         return maybeCompleteParent(t);
@@ -895,7 +934,7 @@
       newTaskName.value = '';
       newTaskDesc.value = '';
       newTaskStatus.value = 'not_started';
-      renderTasksPage();
+      showTaskListPage();
     });
   });
   newTaskName.addEventListener('keydown', function(e){
