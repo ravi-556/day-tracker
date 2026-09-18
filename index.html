@@ -122,6 +122,8 @@
   .task-row-name{ font-size:0.94rem; font-weight:500; }
   .task-row-date{ font-size:0.76rem; color:var(--ink-soft); }
   .task-row select{ width:auto; flex:none; }
+  .task-row-indent{ padding-left:20px; border-left:2px solid var(--line); margin-left:6px; }
+  .subtask-add input{ flex:1; }
 
   footer{ text-align:center; font-size:0.76rem; color:var(--ink-soft); padding-top:8px; }
 </style>
@@ -195,11 +197,20 @@
               <option value="completed">Completed</option>
             </select>
           </div>
+          <div class="field" style="flex:1 1 160px;">
+            <label for="newTaskParent">Parent task</label>
+            <select id="newTaskParent">
+              <option value="">No parent (top-level)</option>
+            </select>
+          </div>
           <button class="primary" id="addTaskBtn" type="button">Add task</button>
         </div>
       </div>
-      <div class="panel" style="margin-top:16px;">
-        <h2>All tasks</h2>
+      <div class="tabs" style="border-bottom:none;">
+        <button class="tab-btn" id="taskViewRecentBtn" type="button" aria-selected="true">Recent</button>
+        <button class="tab-btn" id="taskViewTreeBtn" type="button" aria-selected="false">By parent</button>
+      </div>
+      <div class="panel">
         <div id="taskPageList"></div>
       </div>
     </div>
@@ -242,14 +253,18 @@
   const taskPageList = document.getElementById('taskPageList');
   const newTaskName = document.getElementById('newTaskName');
   const newTaskStatus = document.getElementById('newTaskStatus');
+  const newTaskParent = document.getElementById('newTaskParent');
+  const taskViewRecentBtn = document.getElementById('taskViewRecentBtn');
+  const taskViewTreeBtn = document.getElementById('taskViewTreeBtn');
 
   let tokenClient = null;
   let accessToken = null;
   let sheetId = null;
   let logRows = []; // {row, date, eventId, title, start, attended, productive, tasks:[{taskId,done}]}
-  let tasksList = []; // {row, id, name, status, createdAt, updatedAt}
+  let tasksList = []; // {row, id, name, status, parentId, createdAt, updatedAt}
   let tasksById = {};
   let saveTimers = {};
+  let taskViewMode = 'recent';
 
   function getSheetId(){ try{ return localStorage.getItem(SHEET_STORAGE) || ''; }catch(e){ return ''; } }
   function setSheetId(v){ try{ localStorage.setItem(SHEET_STORAGE, v); }catch(e){} }
@@ -524,34 +539,34 @@
           });
         }
       }).then(function(){
-        return apiFetch(sheetRangeUrl(TASKS_TAB + '!A1:E1')).then(function(data){
+        return apiFetch(sheetRangeUrl(TASKS_TAB + '!A1:F1')).then(function(data){
           if(data.values && data.values.length) return;
-          return apiFetch(sheetRangeUrl(TASKS_TAB + '!A1:E1') + '?valueInputOption=RAW', {
+          return apiFetch(sheetRangeUrl(TASKS_TAB + '!A1:F1') + '?valueInputOption=RAW', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ values: [['TaskID','Name','Status','CreatedAt','UpdatedAt']] })
+            body: JSON.stringify({ values: [['TaskID','Name','Status','ParentID','CreatedAt','UpdatedAt']] })
           });
         });
       });
   }
 
   function loadTasks(){
-    return apiFetch(sheetRangeUrl(TASKS_TAB + '!A2:E5000')).then(function(data){
+    return apiFetch(sheetRangeUrl(TASKS_TAB + '!A2:F5000')).then(function(data){
       tasksList = (data.values || []).map(function(r, i){
-        return { row: i + 2, id: r[0] || '', name: r[1] || '', status: r[2] || 'not_started', createdAt: r[3] || '', updatedAt: r[4] || '' };
+        return { row: i + 2, id: r[0] || '', name: r[1] || '', status: r[2] || 'not_started', parentId: r[3] || '', createdAt: r[4] || '', updatedAt: r[5] || '' };
       });
       tasksById = {};
       tasksList.forEach(function(t){ tasksById[t.id] = t; });
     });
   }
 
-  function createTask(name, status){
+  function createTask(name, status, parentId){
     const now = new Date().toISOString();
-    const task = { id: generateId(), name: name, status: status, createdAt: now, updatedAt: now };
+    const task = { id: generateId(), name: name, status: status, parentId: parentId || '', createdAt: now, updatedAt: now };
     return apiFetch(sheetRangeUrl(TASKS_TAB + '!A1') + ':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [[task.id, task.name, task.status, task.createdAt, task.updatedAt]] })
+      body: JSON.stringify({ values: [[task.id, task.name, task.status, task.parentId, task.createdAt, task.updatedAt]] })
     }).then(function(resp){
       let row = tasksList.length + 2;
       const m = resp.updates && resp.updates.updatedRange && resp.updates.updatedRange.match(/![A-Z]+(\d+)/);
@@ -566,40 +581,117 @@
   function updateTaskStatus(task, newStatus){
     task.status = newStatus;
     task.updatedAt = new Date().toISOString();
-    const range = TASKS_TAB + '!A' + task.row + ':E' + task.row;
+    const range = TASKS_TAB + '!A' + task.row + ':F' + task.row;
     return apiFetch(sheetRangeUrl(range) + '?valueInputOption=RAW', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [[task.id, task.name, task.status, task.createdAt, task.updatedAt]] })
+      body: JSON.stringify({ values: [[task.id, task.name, task.status, task.parentId, task.createdAt, task.updatedAt]] })
+    });
+  }
+
+  // A task with children is a "parent" and isn't itself directly attachable to an event.
+  function isAttachable(task){
+    return !tasksList.some(function(t){ return t.parentId === task.id; });
+  }
+
+  // When every sibling under a parent is completed, auto-complete the parent too.
+  function maybeCompleteParent(task){
+    if(!task.parentId) return Promise.resolve();
+    const parent = tasksById[task.parentId];
+    if(!parent || parent.status === 'completed') return Promise.resolve();
+    const siblings = tasksList.filter(function(t){ return t.parentId === task.parentId; });
+    if(siblings.length && siblings.every(function(s){ return s.status === 'completed'; })){
+      return updateTaskStatus(parent, 'completed');
+    }
+    return Promise.resolve();
+  }
+
+  function populateParentSelect(){
+    const current = newTaskParent.value;
+    const topLevel = tasksList.filter(function(t){ return !t.parentId; })
+      .sort(function(a, b){ return (a.name || '').localeCompare(b.name || ''); });
+    newTaskParent.innerHTML = '<option value="">No parent (top-level)</option>' +
+      topLevel.map(function(t){ return '<option value="' + t.id + '">' + escapeHtml(t.name) + '</option>'; }).join('');
+    if(topLevel.some(function(t){ return t.id === current; })) newTaskParent.value = current;
+  }
+
+  function renderTaskRow(t, opts){
+    opts = opts || {};
+    const row = document.createElement('div');
+    row.className = 'task-row' + (opts.indent ? ' task-row-indent' : '');
+    const parentLabel = (opts.showParentLabel && t.parentId && tasksById[t.parentId])
+      ? ('<span class="task-row-date">Subtask of ' + escapeHtml(tasksById[t.parentId].name) + '</span>') : '';
+    row.innerHTML =
+      '<div class="task-row-main">' +
+        '<span class="task-row-name">' + escapeHtml(t.name) + '</span>' +
+        '<span class="task-row-date">Created ' + (t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '') + '</span>' +
+        parentLabel +
+      '</div>' +
+      '<select>' + STATUS_ORDER.map(function(s){
+        return '<option value="' + s + '"' + (s === t.status ? ' selected' : '') + '>' + STATUS_LABELS[s] + '</option>';
+      }).join('') + '</select>';
+    row.querySelector('select').addEventListener('change', function(e){
+      updateTaskStatus(t, e.target.value).then(function(){
+        return maybeCompleteParent(t);
+      }).then(function(){
+        renderTasksPage();
+        renderChipsEverywhere();
+      });
+    });
+    return row;
+  }
+
+  function renderRecentView(container){
+    tasksList.slice().sort(function(a, b){ return (b.createdAt || '').localeCompare(a.createdAt || ''); })
+      .forEach(function(t){ container.appendChild(renderTaskRow(t, { showParentLabel: true })); });
+  }
+
+  function renderTreeView(container){
+    const topLevel = tasksList.filter(function(t){ return !t.parentId; })
+      .sort(function(a, b){ return (b.createdAt || '').localeCompare(a.createdAt || ''); });
+    topLevel.forEach(function(parent){
+      container.appendChild(renderTaskRow(parent, {}));
+      tasksList.filter(function(t){ return t.parentId === parent.id; })
+        .sort(function(a, b){ return (a.createdAt || '').localeCompare(b.createdAt || ''); })
+        .forEach(function(sub){ container.appendChild(renderTaskRow(sub, { indent: true })); });
+
+      const addRow = document.createElement('div');
+      addRow.className = 'row subtask-add task-row-indent';
+      addRow.innerHTML = '<input type="text" placeholder="Add subtask"><button class="ghost" type="button">Add</button>';
+      const input = addRow.querySelector('input');
+      function addSub(){
+        const name = input.value.trim();
+        if(!name) return;
+        createTask(name, 'not_started', parent.id).then(function(){ renderTasksPage(); });
+      }
+      addRow.querySelector('button').addEventListener('click', addSub);
+      input.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); addSub(); } });
+      container.appendChild(addRow);
     });
   }
 
   function renderTasksPage(){
+    populateParentSelect();
     taskPageList.innerHTML = '';
     if(tasksList.length === 0){
       taskPageList.innerHTML = '<p class="empty">No tasks yet.</p>';
       return;
     }
-    const ordered = tasksList.slice().sort(function(a, b){ return (b.createdAt || '').localeCompare(a.createdAt || ''); });
-    ordered.forEach(function(t){
-      const row = document.createElement('div');
-      row.className = 'task-row';
-      row.innerHTML =
-        '<div class="task-row-main">' +
-          '<span class="task-row-name">' + escapeHtml(t.name) + '</span>' +
-          '<span class="task-row-date">Created ' + (t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '') + '</span>' +
-        '</div>' +
-        '<select>' + STATUS_ORDER.map(function(s){
-          return '<option value="' + s + '"' + (s === t.status ? ' selected' : '') + '>' + STATUS_LABELS[s] + '</option>';
-        }).join('') + '</select>';
-      row.querySelector('select').addEventListener('change', function(e){
-        updateTaskStatus(t, e.target.value).then(function(){
-          renderChipsEverywhere();
-        });
-      });
-      taskPageList.appendChild(row);
-    });
+    if(taskViewMode === 'tree') renderTreeView(taskPageList); else renderRecentView(taskPageList);
   }
+
+  taskViewRecentBtn.addEventListener('click', function(){
+    taskViewMode = 'recent';
+    taskViewRecentBtn.setAttribute('aria-selected', 'true');
+    taskViewTreeBtn.setAttribute('aria-selected', 'false');
+    renderTasksPage();
+  });
+  taskViewTreeBtn.addEventListener('click', function(){
+    taskViewMode = 'tree';
+    taskViewTreeBtn.setAttribute('aria-selected', 'true');
+    taskViewRecentBtn.setAttribute('aria-selected', 'false');
+    renderTasksPage();
+  });
 
   let chipRefreshFns = [];
   function renderChipsEverywhere(){
@@ -609,7 +701,7 @@
   document.getElementById('addTaskBtn').addEventListener('click', function(){
     const name = newTaskName.value.trim();
     if(!name) return;
-    createTask(name, newTaskStatus.value).then(function(){
+    createTask(name, newTaskStatus.value, newTaskParent.value).then(function(){
       newTaskName.value = '';
       newTaskStatus.value = 'not_started';
       renderTasksPage();
@@ -753,7 +845,7 @@
         const q = comboInput.value.trim().toLowerCase();
         const linkedIds = state.tasks.map(function(l){ return l.taskId; });
         const matches = tasksList.filter(function(t){
-          return linkedIds.indexOf(t.id) === -1 && (!q || t.name.toLowerCase().indexOf(q) !== -1);
+          return linkedIds.indexOf(t.id) === -1 && isAttachable(t) && (!q || t.name.toLowerCase().indexOf(q) !== -1);
         }).sort(function(a, b){ return (b.createdAt || '').localeCompare(a.createdAt || ''); });
 
         dropdownEl.innerHTML = '';
