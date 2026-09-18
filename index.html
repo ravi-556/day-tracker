@@ -291,6 +291,10 @@
             <label for="detailDescription">Description</label>
             <textarea id="detailDescription" rows="10" placeholder="Add detail…"></textarea>
           </div>
+          <div id="detailSubtasksSection" style="margin-top:16px;">
+            <label>Subtasks</label>
+            <div id="detailSubtasks" style="margin-top:6px;"></div>
+          </div>
           <div style="margin-top:16px;">
             <label>History</label>
             <div id="detailHistory" style="margin-top:6px;"></div>
@@ -354,6 +358,8 @@
   const detailMeta = document.getElementById('detailMeta');
   const detailStatus = document.getElementById('detailStatus');
   const detailDescription = document.getElementById('detailDescription');
+  const detailSubtasksSection = document.getElementById('detailSubtasksSection');
+  const detailSubtasks = document.getElementById('detailSubtasks');
   const detailHistory = document.getElementById('detailHistory');
 
   let tokenClient = null;
@@ -921,12 +927,28 @@
     }).join('');
   }
 
+  function renderDetailSubtasks(task){
+    const subs = tasksList.filter(function(t){ return t.parentId === task.id; })
+      .sort(function(a, b){ return (a.createdAt || '').localeCompare(b.createdAt || ''); });
+    detailSubtasks.innerHTML = '';
+    if(subs.length === 0){ detailSubtasks.innerHTML = '<p class="empty">No subtasks yet.</p>'; return; }
+    subs.forEach(function(sub){
+      detailSubtasks.appendChild(renderTaskRow(sub, function(){
+        renderDetailSubtasks(task);
+        detailStatus.value = task.status;
+        renderDetailHistory(task);
+      }));
+    });
+  }
+
   function showTaskDetailPage(task){
     taskListPage.hidden = true;
     taskCreatePage.hidden = true;
     taskDetailPage.hidden = false;
     currentDetailTask = task;
-    createSubtaskBtn.hidden = !!task.parentId; // subtasks can't themselves have subtasks
+    const isSubtask = !!task.parentId;
+    createSubtaskBtn.hidden = isSubtask; // subtasks can't themselves have subtasks
+    detailSubtasksSection.hidden = isSubtask;
 
     detailName.textContent = task.name;
     detailMeta.textContent = 'Created ' + (task.createdAt ? new Date(task.createdAt).toLocaleString() : '') +
@@ -935,6 +957,7 @@
       return '<option value="' + s + '"' + (s === task.status ? ' selected' : '') + '>' + STATUS_LABELS[s] + '</option>';
     }).join('');
     detailDescription.value = task.description || '';
+    if(!isSubtask) renderDetailSubtasks(task);
     renderDetailHistory(task);
 
     detailStatus.onchange = function(e){
@@ -1017,7 +1040,7 @@
 
   // ---------- Tasks page ----------
 
-  function renderTaskRow(t){
+  function renderTaskRow(t, onChanged){
     const row = document.createElement('div');
     row.className = 'task-row';
     const parentLabel = (t.parentId && tasksById[t.parentId])
@@ -1036,8 +1059,8 @@
       updateTaskStatus(t, e.target.value).then(function(){
         return maybeCompleteParent(t);
       }).then(function(){
-        renderTasksPage();
         renderChipsEverywhere();
+        if(onChanged) onChanged(); else renderTasksPage();
       });
     });
     return row;
