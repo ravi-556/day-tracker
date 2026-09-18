@@ -76,12 +76,24 @@
     border-radius:8px; padding:0 14px; height:44px; cursor:pointer;
   }
   button.ghost:hover{ color:var(--ink); border-color:var(--moss); }
+  button.ghost.danger{ color:var(--clay); }
+  button.ghost.danger:hover{ color:var(--clay); border-color:var(--clay); background:var(--clay-soft); }
   .notice{ font-size:0.88rem; padding:12px 14px; border-radius:8px; background:var(--clay-soft); color:var(--clay); border:1px solid transparent; }
   .notice.ok{ background:var(--moss-soft); color:var(--moss-deep); }
   .empty{ color:var(--ink-soft); font-size:0.9rem; padding:8px 4px; }
 
   #todayView{ display:flex; flex-direction:column; gap:16px; }
   #tasksView{ display:flex; flex-direction:column; gap:16px; }
+  #taskDetailPage{ display:flex; flex-direction:column; gap:16px; }
+  .detail-grid{ display:grid; grid-template-columns:1fr; gap:16px; align-items:start; }
+  .detail-side{ display:flex; flex-direction:column; gap:16px; }
+  @media (min-width:860px){
+    .detail-grid{ grid-template-columns:1.4fr 1fr; }
+    .detail-side .panel{ max-height:70vh; overflow-y:auto; }
+  }
+  @media (min-width:1180px){
+    .detail-grid{ grid-template-columns:1.4fr 0.9fr 0.9fr; }
+  }
   #historyContent{ display:flex; flex-direction:column; gap:16px; }
 
   .date-heading{ font-family:"Fraunces", Georgia, serif; font-size:1.1rem; font-weight:600; margin:0; }
@@ -90,6 +102,8 @@
   .event-card{ display:flex; flex-direction:column; gap:12px; }
   .event-card .event-time{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.78rem; color:var(--ink-soft); }
   .event-card .event-title{ font-size:1.02rem; font-weight:600; margin:2px 0 0; }
+  .event-card.is-now{ border-left:4px solid var(--moss); }
+  .event-now-badge{ display:inline-block; font-size:0.68rem; font-weight:600; letter-spacing:0.02em; color:var(--moss-deep); background:var(--moss-soft); padding:2px 8px; border-radius:999px; margin-left:8px; vertical-align:middle; }
 
   .segmented{ display:flex; gap:8px; flex-wrap:wrap; }
   .seg-group{ display:flex; flex-direction:column; gap:6px; }
@@ -120,6 +134,7 @@
   .chips{ display:flex; flex-direction:column; gap:8px; }
   .chip{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
   .chip .chip-name{ flex:1 1 100px; font-size:0.9rem; min-width:0; }
+  .chip-minutes{ width:64px; flex:none; font-family:inherit; font-size:0.86rem; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:7px; padding:6px 8px; }
   .chip button.remove{ background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:0.95rem; padding:2px 4px; flex:none; }
   .chip button.remove:hover{ color:var(--clay); }
 
@@ -129,12 +144,13 @@
   .combo-option:hover{ background:var(--moss-soft); }
   .combo-option.create{ color:var(--moss-deep); font-weight:600; }
 
-  .task-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 4px; border-bottom:1px solid var(--line); }
+  .task-row{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 12px; padding:10px 4px; border-bottom:1px solid var(--line); }
   .task-row:last-child{ border-bottom:none; }
-  .task-row-main{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .task-row-main{ display:flex; flex-direction:column; gap:2px; min-width:0; flex:1 1 180px; }
   .task-row-name{ background:none; border:none; padding:0; font:inherit; font-size:0.94rem; font-weight:500; color:var(--ink); text-align:left; cursor:pointer; }
   .task-row-name:hover{ text-decoration:underline; color:var(--moss-deep); }
   .task-row-date{ font-size:0.76rem; color:var(--ink-soft); }
+  .task-row-stat{ font-size:0.8rem; color:var(--ink-soft); font-family:"IBM Plex Mono", ui-monospace, monospace; flex:none; white-space:nowrap; }
   .task-row select{ width:auto; flex:none; }
 
   .history-item{ font-size:0.85rem; padding:7px 0; border-bottom:1px solid var(--line); color:var(--ink-soft); }
@@ -197,6 +213,16 @@
 
     <div id="todayView">
       <p class="date-heading" id="todayHeading"></p>
+      <div class="panel">
+        <div class="seg-group">
+          <label>Show</label>
+          <div class="seg-buttons" id="eventsFilter">
+            <button type="button" class="seg-btn" data-filter="past" aria-pressed="false">Past</button>
+            <button type="button" class="seg-btn" data-filter="current" aria-pressed="true">Current</button>
+            <button type="button" class="seg-btn" data-filter="upcoming" aria-pressed="false">Upcoming</button>
+          </div>
+        </div>
+      </div>
       <div id="events"></div>
     </div>
 
@@ -273,32 +299,46 @@
         </div>
       </div>
 
-      <div id="taskDetailPage" class="narrow" hidden>
-        <div class="panel">
-          <div class="row" style="justify-content:flex-end; gap:8px;">
-            <button class="ghost" id="createSubtaskBtn" type="button">+ Create subtask</button>
-            <button class="ghost" id="backFromDetailBtn" type="button">&larr; Back</button>
+      <div id="taskDetailPage" hidden>
+        <div class="row" style="justify-content:flex-end; gap:8px;">
+          <button class="ghost" id="createSubtaskBtn" type="button">+ Create subtask</button>
+          <button class="ghost danger" id="deleteTaskBtn" type="button">Delete</button>
+          <button class="ghost" id="editTaskBtn" type="button">Edit</button>
+          <button class="primary" id="saveTaskEditBtn" type="button" hidden>Save changes</button>
+          <button class="ghost" id="cancelTaskEditBtn" type="button" hidden>Cancel</button>
+          <button class="ghost" id="backFromDetailBtn" type="button">&larr; Back</button>
+        </div>
+        <div class="detail-grid">
+          <div class="panel">
+            <div class="field">
+              <label for="detailName">Title</label>
+              <input type="text" id="detailName">
+            </div>
+            <p class="task-row-date" id="detailMeta"></p>
+            <div class="field" style="margin-top:10px;">
+              <label for="detailStatus">Status</label>
+              <select id="detailStatus"></select>
+            </div>
+            <div class="field" style="margin-top:12px;">
+              <label for="detailDescription">Description</label>
+              <textarea id="detailDescription" rows="10" placeholder="Add detail…"></textarea>
+            </div>
           </div>
-          <div class="field" style="margin-top:10px;">
-            <label for="detailName">Title</label>
-            <input type="text" id="detailName">
+          <div class="detail-side">
+            <div class="panel" id="detailSubtasksSection">
+              <label>Subtasks</label>
+              <div id="detailSubtasks" style="margin-top:6px;"></div>
+            </div>
+            <div class="panel">
+              <label>History</label>
+              <div id="detailHistory" style="margin-top:6px;"></div>
+            </div>
           </div>
-          <p class="task-row-date" id="detailMeta"></p>
-          <div class="field" style="margin-top:10px;">
-            <label for="detailStatus">Status</label>
-            <select id="detailStatus"></select>
-          </div>
-          <div class="field" style="margin-top:12px;">
-            <label for="detailDescription">Description</label>
-            <textarea id="detailDescription" rows="10" placeholder="Add detail…"></textarea>
-          </div>
-          <div id="detailSubtasksSection" style="margin-top:16px;">
-            <label>Subtasks</label>
-            <div id="detailSubtasks" style="margin-top:6px;"></div>
-          </div>
-          <div style="margin-top:16px;">
-            <label>History</label>
-            <div id="detailHistory" style="margin-top:6px;"></div>
+          <div class="detail-side">
+            <div class="panel">
+              <label>Time log</label>
+              <div id="detailSessions" style="margin-top:6px;"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -318,6 +358,7 @@
   const CLIENT_ID = '238839451728-qjhhmocvap3kk5chei3bv17n2hkjr0am.apps.googleusercontent.com';
   const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets';
   const SHEET_STORAGE = 'dt_sheet_id';
+  const TOKEN_STORAGE = 'dt_token';
   const TAB_NAME = 'Sheet1';
   const TASKS_TAB = 'Tasks';
   const TASK_HISTORY_TAB = 'TaskHistory';
@@ -354,6 +395,10 @@
   const createTaskBtn = document.getElementById('createTaskBtn');
   const cancelCreateBtn = document.getElementById('cancelCreateBtn');
   const createSubtaskBtn = document.getElementById('createSubtaskBtn');
+  const deleteTaskBtn = document.getElementById('deleteTaskBtn');
+  const editTaskBtn = document.getElementById('editTaskBtn');
+  const saveTaskEditBtn = document.getElementById('saveTaskEditBtn');
+  const cancelTaskEditBtn = document.getElementById('cancelTaskEditBtn');
   const backFromDetailBtn = document.getElementById('backFromDetailBtn');
   const detailName = document.getElementById('detailName');
   const detailMeta = document.getElementById('detailMeta');
@@ -361,6 +406,7 @@
   const detailDescription = document.getElementById('detailDescription');
   const detailSubtasksSection = document.getElementById('detailSubtasksSection');
   const detailSubtasks = document.getElementById('detailSubtasks');
+  const detailSessions = document.getElementById('detailSessions');
   const detailHistory = document.getElementById('detailHistory');
 
   let tokenClient = null;
@@ -377,10 +423,30 @@
   let newTaskParentId = '';
   let currentDetailTask = null;
   let createReturnTask = null; // task whose detail page to return to after save/cancel, or null for the list
+  let todayEventsCache = [];
+  let eventsFilter = 'current'; // 'past' | 'current' | 'upcoming'
 
   function getSheetId(){ try{ return localStorage.getItem(SHEET_STORAGE) || ''; }catch(e){ return ''; } }
   function setSheetId(v){ try{ localStorage.setItem(SHEET_STORAGE, v); }catch(e){} }
   function clearSheetId(){ try{ localStorage.removeItem(SHEET_STORAGE); }catch(e){} }
+
+  // Access tokens are cached in localStorage (survives tab/browser close) so reopening
+  // the app doesn't force a fresh sign-in as long as the token hasn't expired yet.
+  // Google tokens are short-lived (~1hr) regardless of where they're stored, so this
+  // only avoids re-login within that window, not indefinitely.
+  function getCachedToken(){
+    try{
+      const raw = JSON.parse(localStorage.getItem(TOKEN_STORAGE) || 'null');
+      if(raw && raw.access_token && raw.expires_at > Date.now() + 60000) return raw.access_token;
+    }catch(e){}
+    return null;
+  }
+  function setCachedToken(token, expiresInSeconds){
+    try{
+      localStorage.setItem(TOKEN_STORAGE, JSON.stringify({ access_token: token, expires_at: Date.now() + (expiresInSeconds || 3599) * 1000 }));
+    }catch(e){}
+  }
+  function clearCachedToken(){ try{ localStorage.removeItem(TOKEN_STORAGE); }catch(e){} }
 
   function extractSheetId(input){
     input = (input || '').trim();
@@ -443,6 +509,7 @@
       callback: function(resp){
         if(resp.error){ showFeedback(setupFeedback, 'Sign-in failed: ' + resp.error, false); return; }
         accessToken = resp.access_token;
+        setCachedToken(resp.access_token, resp.expires_in);
         onSignedIn();
       }
     });
@@ -453,6 +520,21 @@
     tokenClient.requestAccessToken();
   });
 
+  // A 401 mid-session (the access token expired ~1hr after sign-in, or was revoked)
+  // used to just throw and leave the user stuck on a broken screen. Instead, drop
+  // the stale cached token and send them back to a clear sign-in prompt.
+  function handleAuthExpired(){
+    accessToken = null;
+    clearCachedToken();
+    app.hidden = true;
+    settingsPanel.hidden = true;
+    setup.hidden = false;
+    document.querySelector('#setup h2').textContent = 'Sign in';
+    document.querySelector('#setup p').textContent = 'Your session expired — sign in again to keep going.';
+    document.getElementById('sheetInput').closest('.field').hidden = true;
+    document.getElementById('saveSheetBtn').hidden = true;
+  }
+
   function apiFetch(url, opts){
     opts = opts || {};
     opts.headers = Object.assign({}, opts.headers, { Authorization: 'Bearer ' + accessToken });
@@ -462,6 +544,7 @@
           const msg = body && body.error && body.error.message ? body.error.message : ('HTTP ' + r.status);
           const err = new Error(msg);
           err.status = r.status;
+          if(r.status === 401) handleAuthExpired();
           throw err;
         });
       }
@@ -478,6 +561,12 @@
       setup.hidden = true;
       settingsBtn.hidden = false;
       initGis();
+      const cached = getCachedToken();
+      if(cached){
+        accessToken = cached;
+        onSignedIn();
+        return;
+      }
       // show sign-in directly since sheet already configured
       setup.hidden = false;
       document.querySelector('#setup h2').textContent = 'Sign in';
@@ -631,6 +720,7 @@
     }
     accessToken = null;
     clearSheetId();
+    clearCachedToken();
     settingsPanel.hidden = true;
     location.reload();
   });
@@ -670,8 +760,8 @@
       ensureHeader().then(loadLogRows),
       ensureAppSheets().then(function(){ return Promise.all([loadTasks(), loadTaskHistory()]); })
     ]).then(function(results){
-      const events = (results[0].items || []).filter(function(e){ return e.start && (e.start.dateTime || e.start.date); });
-      renderEvents(events);
+      todayEventsCache = (results[0].items || []).filter(function(e){ return e.start && (e.start.dateTime || e.start.date); });
+      renderTodayEvents();
     }).catch(function(err){
       eventsEl.innerHTML = '';
       showFeedback(feedback, 'Load failed: ' + err.message, false);
@@ -819,7 +909,7 @@
           row: i + 2, id: r[0] || '', name: r[1] || '', description: r[2] || '',
           status: r[3] || 'not_started', parentId: r[4] || '', createdAt: r[5] || '', updatedAt: r[6] || ''
         };
-      });
+      }).filter(function(t){ return t.id; }); // skip blank rows left behind by deleted tasks
       tasksById = {};
       tasksList.forEach(function(t){ tasksById[t.id] = t; });
     });
@@ -857,6 +947,28 @@
     });
   }
 
+  function clearTaskRow(task){
+    const range = TASKS_TAB + '!A' + task.row + ':G' + task.row;
+    return apiFetch(sheetRangeUrl(range) + ':clear', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+  }
+
+  // Deleting a task with subtasks also deletes those subtasks — leaving them behind
+  // would orphan them (their parent link would point at nothing, and since the flat
+  // list only shows top-level tasks, they'd become invisible and unreachable).
+  function deleteTask(task){
+    const children = tasksList.filter(function(t){ return t.parentId === task.id; });
+    const toDelete = [task].concat(children);
+    return Promise.all(toDelete.map(clearTaskRow)).then(function(){
+      const deletedIds = toDelete.map(function(t){ return t.id; });
+      tasksList = tasksList.filter(function(t){ return deletedIds.indexOf(t.id) === -1; });
+      deletedIds.forEach(function(id){ delete tasksById[id]; });
+    });
+  }
+
   function createTask(name, description, status, parentId){
     const now = new Date().toISOString();
     const task = { id: generateId(), name: name, description: description || '', status: status, parentId: parentId || '', createdAt: now, updatedAt: now };
@@ -885,16 +997,19 @@
     });
   }
 
-  function updateTaskDescription(task, newDescription){
-    task.description = newDescription;
-    task.updatedAt = new Date().toISOString();
-    return saveTaskRow(task);
-  }
-
-  function updateTaskName(task, newName){
+  function saveTaskEdits(task, newName, newDescription, newStatus){
+    const oldStatus = task.status;
     task.name = newName;
+    task.description = newDescription;
+    task.status = newStatus;
     task.updatedAt = new Date().toISOString();
     return saveTaskRow(task).then(function(){
+      if(oldStatus !== newStatus){
+        return logTaskHistory(task.id, oldStatus, newStatus, task.updatedAt).then(function(){
+          return maybeCompleteParent(task);
+        });
+      }
+    }).then(function(){
       renderChipsEverywhere();
     });
   }
@@ -918,11 +1033,25 @@
 
   // ---------- Task pages (list / create / detail) ----------
 
+  let taskDetailBackStack = [];
+
   function showTaskListPage(){
+    taskDetailBackStack = [];
     taskListPage.hidden = false;
     taskCreatePage.hidden = true;
     taskDetailPage.hidden = true;
     renderTasksPage();
+  }
+
+  // Records where we're navigating FROM before switching to a task's detail page,
+  // so the Back button can return to that exact spot instead of always the list.
+  function navigateToTaskDetail(task){
+    if(!taskDetailPage.hidden && currentDetailTask){
+      taskDetailBackStack.push({ type: 'task', task: currentDetailTask });
+    } else if(!taskListPage.hidden){
+      taskDetailBackStack.push({ type: 'list' });
+    }
+    showTaskDetailPage(task);
   }
 
   function showTaskCreatePage(parentTask){
@@ -957,18 +1086,123 @@
     }).join('');
   }
 
+  // Sessions are derived from the event log's Tasks links, not stored redundantly
+  // on the task itself — so this always reflects the latest logged minutes.
+  function formatMinutes(totalMinutes){
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    return (hours ? hours + 'h ' : '') + mins + 'm';
+  }
+
+  // Each session keeps a live reference to its source log row + task-link so an
+  // edit here can be written straight back to that row via upsertLog.
+  function getTaskSessions(taskId){
+    const sessions = [];
+    logRows.forEach(function(row){
+      (row.tasks || []).forEach(function(link){
+        if(link.taskId === taskId){
+          sessions.push({ row: row, link: link, date: row.date, eventTitle: row.title, minutes: link.minutes || 0 });
+        }
+      });
+    });
+    return sessions.sort(function(a, b){ return b.date.localeCompare(a.date); });
+  }
+
+  function totalTaskMinutes(taskId){
+    return getTaskSessions(taskId).reduce(function(sum, s){ return sum + s.minutes; }, 0);
+  }
+
+  function saveSessionMinutes(session, newMinutes){
+    session.link.minutes = newMinutes;
+    return upsertLog(session.row);
+  }
+
+  function renderDetailSessions(task){
+    const sessions = getTaskSessions(task.id);
+    detailSessions.innerHTML = '';
+
+    const summary = document.createElement('p');
+    summary.className = 'task-row-date';
+    const totalMinutes = sessions.reduce(function(sum, s){ return sum + s.minutes; }, 0);
+    summary.textContent = sessions.length + (sessions.length === 1 ? ' event' : ' events') + ' · ' + formatMinutes(totalMinutes) + ' total';
+    detailSessions.appendChild(summary);
+
+    if(sessions.length === 0){
+      const empty = document.createElement('p');
+      empty.className = 'empty';
+      empty.textContent = 'No events logged for this task yet. Attach it to an event from the Today tab first.';
+      detailSessions.appendChild(empty);
+      return;
+    }
+
+    sessions.forEach(function(s){
+      const row = document.createElement('div');
+      row.className = 'task-row';
+      row.innerHTML =
+        '<div class="task-row-main">' +
+          '<span class="task-row-name" style="cursor:default;">' + escapeHtml(s.eventTitle) + '</span>' +
+          '<span class="task-row-date">' + escapeHtml(s.date) + '</span>' +
+        '</div>' +
+        '<div class="row" style="gap:6px; flex-wrap:nowrap;">' +
+          '<input type="number" class="chip-minutes" min="0" value="' + s.minutes + '" aria-label="Minutes spent on ' + escapeHtml(s.eventTitle) + '">' +
+          '<button type="button" class="ghost">Save</button>' +
+        '</div>';
+      const input = row.querySelector('input');
+      const saveBtn = row.querySelector('button');
+      saveBtn.addEventListener('click', function(){
+        const val = parseInt(input.value, 10) || 0;
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving…';
+        saveSessionMinutes(s, val).then(function(){
+          renderDetailSessions(task);
+        }).catch(function(err){
+          saveBtn.disabled = false;
+          saveBtn.textContent = 'Save';
+          showFeedback(feedback, 'Save failed: ' + err.message, false);
+        });
+      });
+      detailSessions.appendChild(row);
+    });
+  }
+
   function renderDetailSubtasks(task){
     const subs = tasksList.filter(function(t){ return t.parentId === task.id; })
       .sort(function(a, b){ return (a.createdAt || '').localeCompare(b.createdAt || ''); });
     detailSubtasks.innerHTML = '';
     if(subs.length === 0){ detailSubtasks.innerHTML = '<p class="empty">No subtasks yet.</p>'; return; }
     subs.forEach(function(sub){
-      detailSubtasks.appendChild(renderTaskRow(sub, function(){
-        renderDetailSubtasks(task);
-        detailStatus.value = task.status;
-        renderDetailHistory(task);
-      }));
+      const row = document.createElement('div');
+      row.className = 'task-row';
+      row.innerHTML =
+        '<button type="button" class="task-row-name">' + escapeHtml(sub.name) + '</button>' +
+        '<span class="badge ' + sub.status + '">' + STATUS_LABELS[sub.status] + '</span>';
+      row.querySelector('.task-row-name').addEventListener('click', function(){ navigateToTaskDetail(sub); });
+      detailSubtasks.appendChild(row);
     });
+  }
+
+  function renderDetailMeta(task){
+    let html = 'Created ' + escapeHtml(task.createdAt ? new Date(task.createdAt).toLocaleString() : '');
+    const parentTask = task.parentId ? tasksById[task.parentId] : null;
+    if(parentTask){
+      html += ' · Parent task: <button type="button" class="task-row-name" id="detailParentLink">' + escapeHtml(parentTask.name) + '</button>';
+    }
+    detailMeta.innerHTML = html;
+    if(parentTask){
+      document.getElementById('detailParentLink').addEventListener('click', function(){ navigateToTaskDetail(parentTask); });
+    }
+  }
+
+  function setDetailEditing(on, isSubtask){
+    detailName.disabled = !on;
+    detailStatus.disabled = !on;
+    detailDescription.disabled = !on;
+    editTaskBtn.hidden = on;
+    saveTaskEditBtn.hidden = !on;
+    cancelTaskEditBtn.hidden = !on;
+    backFromDetailBtn.hidden = on;
+    deleteTaskBtn.hidden = on;
+    createSubtaskBtn.hidden = on || isSubtask; // subtasks can't themselves have subtasks
   }
 
   function showTaskDetailPage(task){
@@ -977,42 +1211,57 @@
     taskDetailPage.hidden = false;
     currentDetailTask = task;
     const isSubtask = !!task.parentId;
-    createSubtaskBtn.hidden = isSubtask; // subtasks can't themselves have subtasks
     detailSubtasksSection.hidden = isSubtask;
 
     detailName.value = task.name;
-    detailMeta.textContent = 'Created ' + (task.createdAt ? new Date(task.createdAt).toLocaleString() : '') +
-      (task.parentId && tasksById[task.parentId] ? ' · Subtask of ' + tasksById[task.parentId].name : '');
+    renderDetailMeta(task);
     detailStatus.innerHTML = STATUS_ORDER.map(function(s){
       return '<option value="' + s + '"' + (s === task.status ? ' selected' : '') + '>' + STATUS_LABELS[s] + '</option>';
     }).join('');
     detailDescription.value = task.description || '';
     if(!isSubtask) renderDetailSubtasks(task);
+    renderDetailSessions(task);
     renderDetailHistory(task);
+    setDetailEditing(false, isSubtask);
 
-    detailStatus.onchange = function(e){
-      updateTaskStatus(task, e.target.value).then(function(){
-        return maybeCompleteParent(task);
-      }).then(function(){
-        renderDetailHistory(task);
-        renderChipsEverywhere();
+    editTaskBtn.onclick = function(){ setDetailEditing(true, isSubtask); };
+
+    deleteTaskBtn.onclick = function(){
+      const children = tasksList.filter(function(t){ return t.parentId === task.id; });
+      const warning = children.length
+        ? ('Delete "' + task.name + '" and its ' + children.length + ' subtask' + (children.length === 1 ? '' : 's') + '? This can\'t be undone.')
+        : ('Delete "' + task.name + '"? This can\'t be undone.');
+      if(!window.confirm(warning)) return;
+      deleteTaskBtn.disabled = true;
+      deleteTask(task).then(function(){
+        showTaskListPage();
+      }).catch(function(err){
+        deleteTaskBtn.disabled = false;
+        showFeedback(feedback, 'Delete failed: ' + err.message, false);
       });
     };
-    let nameTimer;
-    detailName.oninput = function(){
-      clearTimeout(nameTimer);
-      nameTimer = setTimeout(function(){
-        const val = detailName.value.trim();
-        if(!val) return;
-        updateTaskName(task, val);
-      }, 600);
+
+    cancelTaskEditBtn.onclick = function(){
+      detailName.value = task.name;
+      detailStatus.value = task.status;
+      detailDescription.value = task.description || '';
+      setDetailEditing(false, isSubtask);
     };
-    let descTimer;
-    detailDescription.oninput = function(){
-      clearTimeout(descTimer);
-      descTimer = setTimeout(function(){
-        updateTaskDescription(task, detailDescription.value);
-      }, 600);
+
+    saveTaskEditBtn.onclick = function(){
+      const newName = detailName.value.trim();
+      if(!newName){ detailName.focus(); return; }
+      saveTaskEditBtn.disabled = true;
+      saveTaskEdits(task, newName, detailDescription.value, detailStatus.value).then(function(){
+        saveTaskEditBtn.disabled = false;
+        setDetailEditing(false, isSubtask);
+        renderDetailMeta(task);
+        renderDetailHistory(task);
+        if(!isSubtask) renderDetailSubtasks(task);
+      }).catch(function(err){
+        saveTaskEditBtn.disabled = false;
+        showFeedback(feedback, 'Save failed: ' + err.message, false);
+      });
     };
   }
 
@@ -1024,7 +1273,11 @@
     newTaskStatus.value = 'not_started';
     returnFromCreatePage();
   });
-  backFromDetailBtn.addEventListener('click', showTaskListPage);
+  backFromDetailBtn.addEventListener('click', function(){
+    const prev = taskDetailBackStack.pop();
+    if(prev && prev.type === 'task'){ showTaskDetailPage(prev.task); }
+    else { showTaskListPage(); }
+  });
 
   function closeParentDropdown(){ newTaskParentDropdown.hidden = true; newTaskParentDropdown.innerHTML = ''; }
 
@@ -1082,24 +1335,30 @@
   function renderTaskRow(t, onChanged){
     const row = document.createElement('div');
     row.className = 'task-row';
-    const parentLabel = (t.parentId && tasksById[t.parentId])
-      ? ('<span class="task-row-date">Subtask of ' + escapeHtml(tasksById[t.parentId].name) + '</span>') : '';
+    const totalMin = totalTaskMinutes(t.id);
+    const subCount = tasksList.filter(function(x){ return x.parentId === t.id; }).length;
     row.innerHTML =
       '<div class="task-row-main">' +
         '<button type="button" class="task-row-name">' + escapeHtml(t.name) + '</button>' +
         '<span class="task-row-date">Created ' + (t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '') + '</span>' +
-        parentLabel +
       '</div>' +
+      '<span class="task-row-stat" title="Time logged">' + (totalMin > 0 ? formatMinutes(totalMin) : '—') + '</span>' +
+      '<span class="task-row-stat" title="Subtasks">' + (subCount > 0 ? (subCount + ' sub' + (subCount === 1 ? '' : 's')) : '—') + '</span>' +
       '<select>' + STATUS_ORDER.map(function(s){
         return '<option value="' + s + '"' + (s === t.status ? ' selected' : '') + '>' + STATUS_LABELS[s] + '</option>';
       }).join('') + '</select>';
-    row.querySelector('.task-row-name').addEventListener('click', function(){ showTaskDetailPage(t); });
+    row.querySelector('.task-row-name').addEventListener('click', function(){ navigateToTaskDetail(t); });
     row.querySelector('select').addEventListener('change', function(e){
+      const prevStatus = t.status;
       updateTaskStatus(t, e.target.value).then(function(){
         return maybeCompleteParent(t);
       }).then(function(){
         renderChipsEverywhere();
         if(onChanged) onChanged(); else renderTasksPage();
+      }).catch(function(err){
+        t.status = prevStatus;
+        row.querySelector('select').value = prevStatus;
+        showFeedback(feedback, 'Save failed: ' + err.message, false);
       });
     });
     return row;
@@ -1146,7 +1405,10 @@
 
   function renderTasksPage(){
     taskPageList.innerHTML = '';
-    const filtered = applyTaskFilters(tasksList)
+    // Subtasks are reached via their parent's row (subtask count) or the parent's
+    // detail page, not listed as their own rows here.
+    const topLevelOnly = tasksList.filter(function(t){ return !t.parentId; });
+    const filtered = applyTaskFilters(topLevelOnly)
       .sort(function(a, b){ return (b.createdAt || '').localeCompare(a.createdAt || ''); });
     if(filtered.length === 0){
       taskPageList.innerHTML = '<p class="empty">No tasks match the current filters.</p>';
@@ -1188,11 +1450,17 @@
   document.getElementById('addTaskBtn').addEventListener('click', function(){
     const name = newTaskName.value.trim();
     if(!name) return;
+    const addTaskBtnEl = document.getElementById('addTaskBtn');
+    addTaskBtnEl.disabled = true;
     createTask(name, newTaskDesc.value.trim(), newTaskStatus.value, newTaskParentId).then(function(){
+      addTaskBtnEl.disabled = false;
       newTaskName.value = '';
       newTaskDesc.value = '';
       newTaskStatus.value = 'not_started';
       returnFromCreatePage();
+    }).catch(function(err){
+      addTaskBtnEl.disabled = false;
+      showFeedback(feedback, 'Save failed: ' + err.message, false);
     });
   });
   newTaskName.addEventListener('keydown', function(e){
@@ -1201,20 +1469,51 @@
 
   // ---------- Today view ----------
 
-  function renderEvents(events){
+  function categorizeEvent(ev, now){
+    if(!ev.start.dateTime) return 'current'; // all-day events count as happening throughout today
+    const start = new Date(ev.start.dateTime);
+    const end = ev.end && ev.end.dateTime ? new Date(ev.end.dateTime) : start;
+    if(now < start) return 'upcoming';
+    if(now >= end) return 'past';
+    return 'current';
+  }
+
+  const EVENTS_EMPTY_MESSAGE = {
+    past: 'No past events yet today.',
+    current: 'No active events right now.',
+    upcoming: 'No upcoming events left today.'
+  };
+
+  function renderTodayEvents(){
+    const now = new Date();
+    const filtered = todayEventsCache.filter(function(ev){ return categorizeEvent(ev, now) === eventsFilter; });
+    renderEvents(filtered, todayEventsCache.length === 0 ? 'No events on your calendar today.' : EVENTS_EMPTY_MESSAGE[eventsFilter]);
+  }
+
+  document.querySelectorAll('#eventsFilter .seg-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      eventsFilter = btn.dataset.filter;
+      document.querySelectorAll('#eventsFilter .seg-btn').forEach(function(b){ b.setAttribute('aria-pressed', String(b === btn)); });
+      renderTodayEvents();
+    });
+  });
+
+  function renderEvents(events, emptyMessage){
     eventsEl.innerHTML = '';
     chipRefreshFns = [];
     if(events.length === 0){
-      eventsEl.innerHTML = '<p class="empty">No events on your calendar today.</p>';
+      eventsEl.innerHTML = '<p class="empty">' + escapeHtml(emptyMessage || 'No events here.') + '</p>';
       return;
     }
     const date = todayStr();
+    const now = new Date();
     events.forEach(function(ev){
       const startIso = ev.start.dateTime || ev.start.date;
       const existing = findLogRow(date, ev.id) || { attended: false, productive: false, tasks: [] };
+      const isNow = categorizeEvent(ev, now) === 'current';
 
       const card = document.createElement('div');
-      card.className = 'panel event-card';
+      card.className = 'panel event-card' + (isNow ? ' is-now' : '');
 
       const state = {
         date: date, eventId: ev.id, title: ev.summary || 'Untitled', start: startIso,
@@ -1225,7 +1524,7 @@
       card.innerHTML =
         '<div>' +
           '<div class="event-time">' + escapeHtml(fmtTime(ev.start.dateTime)) + (ev.start.date ? 'All day' : '') + '</div>' +
-          '<div class="event-title">' + escapeHtml(state.title) + '</div>' +
+          '<div class="event-title">' + escapeHtml(state.title) + (isNow ? '<span class="event-now-badge">Now</span>' : '') + '</div>' +
         '</div>' +
         '<div class="segmented">' +
           '<div class="seg-group"><label>Attended</label><div class="seg-buttons" data-role="attended">' +
@@ -1333,7 +1632,9 @@
         const q = comboInput.value.trim().toLowerCase();
         const linkedIds = state.tasks.map(function(l){ return l.taskId; });
         const matches = tasksList.filter(function(t){
-          return linkedIds.indexOf(t.id) === -1 && isAttachable(t) && (!q || t.name.toLowerCase().indexOf(q) !== -1);
+          return linkedIds.indexOf(t.id) === -1 && isAttachable(t) &&
+            (t.status === 'not_started' || t.status === 'in_progress') &&
+            (!q || t.name.toLowerCase().indexOf(q) !== -1);
         }).sort(function(a, b){ return (b.createdAt || '').localeCompare(a.createdAt || ''); });
 
         dropdownEl.innerHTML = '';
@@ -1366,6 +1667,8 @@
               closeDropdown();
               renderChips();
               scheduleSave();
+            }).catch(function(err){
+              showFeedback(feedback, 'Create task failed: ' + err.message, false);
             });
           });
           dropdownEl.appendChild(createOpt);
