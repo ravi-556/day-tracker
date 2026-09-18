@@ -1,3 +1,639 @@
 <!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Day Tracker</title>
-<p>Setting up…</p>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --paper:#eef1ec;
+    --surface:#ffffff;
+    --ink:#1b231f;
+    --ink-soft:#57645d;
+    --line:#d3dad2;
+    --moss:#3c6a58;
+    --moss-deep:#2a4c3f;
+    --moss-soft:#dde8e2;
+    --clay:#a15a35;
+    --clay-soft:#f3e2d7;
+    --shadow: 0 1px 2px rgba(27,35,31,0.06), 0 4px 14px rgba(27,35,31,0.05);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#121613; --surface:#1a201c; --ink:#eef1ec; --ink-soft:#a9b3ac;
+      --line:#2b332e; --moss:#7db69b; --moss-deep:#9ccbb2; --moss-soft:#22322a;
+      --clay:#e0996c; --clay-soft:#33261e;
+      --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 8px 22px rgba(0,0,0,0.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#121613; --surface:#1a201c; --ink:#eef1ec; --ink-soft:#a9b3ac;
+    --line:#2b332e; --moss:#7db69b; --moss-deep:#9ccbb2; --moss-soft:#22322a;
+    --clay:#e0996c; --clay-soft:#33261e;
+    --shadow: 0 1px 2px rgba(0,0,0,0.35), 0 8px 22px rgba(0,0,0,0.3);
+  }
+  *{box-sizing:border-box;}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    margin:0; padding:0 20px; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{ max-width:640px; margin:0 auto; padding-block:36px 64px; display:flex; flex-direction:column; gap:24px; }
+  header{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; border-bottom:1px solid var(--line); padding-bottom:18px; }
+  .title-block h1{ font-family:"Fraunces", Georgia, serif; font-weight:600; font-size:1.6rem; letter-spacing:-0.01em; margin:0; }
+  .title-block p{ margin:4px 0 0; color:var(--ink-soft); font-size:0.85rem; }
+  #settingsBtn{ background:none; border:1px solid var(--line); color:var(--ink-soft); width:34px; height:34px; border-radius:8px; font-size:1rem; cursor:pointer; flex:none; }
+  #settingsBtn:hover{ color:var(--ink); border-color:var(--moss); }
+  button:focus-visible, input:focus-visible, a:focus-visible{ outline:2px solid var(--moss); outline-offset:2px; }
+  [hidden]{ display:none !important; }
+  .panel{ background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:20px; box-shadow:var(--shadow); }
+  .panel h2{ font-family:"Fraunces", Georgia, serif; font-size:1.1rem; font-weight:600; margin:0 0 6px; }
+  .panel p{ margin:0 0 12px; color:var(--ink-soft); font-size:0.92rem; line-height:1.5; }
+  .panel ol{ margin:0 0 16px; padding-left:1.2em; color:var(--ink-soft); font-size:0.92rem; line-height:1.6; }
+  .panel a{ color:var(--moss-deep); }
+  label{ font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-soft); font-weight:500; }
+  input[type="text"], input[type="password"]{
+    width:100%; font-family:inherit; font-size:0.98rem; color:var(--ink); background:var(--paper);
+    border:1px solid var(--line); border-radius:8px; padding:11px 12px;
+  }
+  .field{ display:flex; flex-direction:column; gap:6px; }
+  .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .row .field{ flex:1 1 220px; }
+  button.primary{
+    font-family:inherit; font-weight:600; font-size:0.94rem; background:var(--moss); color:var(--paper);
+    border:none; border-radius:8px; padding:11px 18px; cursor:pointer; flex:none;
+  }
+  button.primary:hover{ background:var(--moss-deep); }
+  button.ghost{
+    font-family:inherit; font-size:0.88rem; background:none; border:1px solid var(--line); color:var(--ink-soft);
+    border-radius:8px; padding:9px 14px; cursor:pointer;
+  }
+  button.ghost:hover{ color:var(--ink); border-color:var(--moss); }
+  .notice{ font-size:0.88rem; padding:12px 14px; border-radius:8px; background:var(--clay-soft); color:var(--clay); border:1px solid transparent; }
+  .notice.ok{ background:var(--moss-soft); color:var(--moss-deep); }
+  .empty{ color:var(--ink-soft); font-size:0.9rem; padding:8px 4px; }
+
+  .date-heading{ font-family:"Fraunces", Georgia, serif; font-size:1.1rem; font-weight:600; margin:0; }
+
+  .event-card{ display:flex; flex-direction:column; gap:12px; }
+  .event-card .event-time{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.78rem; color:var(--ink-soft); }
+  .event-card .event-title{ font-size:1.02rem; font-weight:600; margin:2px 0 0; }
+
+  .segmented{ display:flex; gap:8px; flex-wrap:wrap; }
+  .seg-group{ display:flex; flex-direction:column; gap:6px; }
+  .seg-buttons{ display:flex; gap:6px; }
+  .seg-btn{
+    font-family:inherit; font-size:0.86rem; background:var(--paper); border:1px solid var(--line); color:var(--ink-soft);
+    border-radius:7px; padding:7px 14px; cursor:pointer;
+  }
+  .seg-btn[aria-pressed="true"]{ background:var(--moss); border-color:var(--moss); color:var(--paper); }
+  .seg-btn.no[aria-pressed="true"]{ background:var(--clay); border-color:var(--clay); }
+
+  .task-list{ display:flex; flex-direction:column; gap:6px; }
+  .task-item{ display:flex; align-items:center; gap:8px; font-size:0.9rem; }
+  .task-item span{ flex:1; }
+  .task-item.done span{ text-decoration:line-through; color:var(--ink-soft); }
+  .task-item button{ background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:0.9rem; padding:2px 6px; }
+  .task-item button:hover{ color:var(--clay); }
+  .task-add{ display:flex; gap:8px; }
+  .task-add input{ flex:1; }
+  .task-add button{ flex:none; }
+
+  .save-state{ font-size:0.76rem; color:var(--ink-soft); font-family:"IBM Plex Mono", ui-monospace, monospace; }
+
+  table.hist{ width:100%; border-collapse:collapse; font-size:0.86rem; }
+  table.hist th, table.hist td{ text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); }
+  table.hist th{ color:var(--ink-soft); font-weight:500; font-size:0.76rem; text-transform:uppercase; letter-spacing:0.04em; }
+
+  .tabs{ display:flex; gap:8px; border-bottom:1px solid var(--line); }
+  .tab-btn{ font-family:inherit; font-size:0.9rem; background:none; border:none; color:var(--ink-soft); padding:10px 4px; cursor:pointer; border-bottom:2px solid transparent; }
+  .tab-btn[aria-selected="true"]{ color:var(--ink); border-bottom-color:var(--moss); font-weight:600; }
+
+  footer{ text-align:center; font-size:0.76rem; color:var(--ink-soft); padding-top:8px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="title-block">
+      <h1>Day Tracker</h1>
+      <p>Today's calendar blocks — attended, productive, tasks done.</p>
+    </div>
+    <button id="settingsBtn" type="button" aria-label="Settings" hidden>⚙</button>
+  </header>
+
+  <section id="setup" class="panel">
+    <h2>Connect Google</h2>
+    <p>Reads today's events from your Google Calendar and logs your check-offs into a Google Sheet you own. Nothing goes anywhere else.</p>
+    <div class="field">
+      <label for="sheetInput">Google Sheet URL or ID</label>
+      <input id="sheetInput" type="text" placeholder="Paste the URL of a blank Google Sheet (sheets.new)">
+    </div>
+    <div class="row" style="margin-top:12px;">
+      <button class="primary" id="saveSheetBtn" type="button">Save sheet</button>
+    </div>
+    <div id="setupFeedback" style="margin-top:12px;"></div>
+    <div class="row" style="margin-top:16px;" id="signInRow" hidden>
+      <button class="primary" id="signInBtn" type="button">Sign in with Google</button>
+    </div>
+  </section>
+
+  <section id="settingsPanel" class="panel" hidden>
+    <h2>Settings</h2>
+    <div class="field">
+      <label for="sheetInput2">Google Sheet URL or ID</label>
+      <input id="sheetInput2" type="text">
+    </div>
+    <div class="row" style="margin-top:12px;">
+      <button class="primary" id="updateSheetBtn" type="button">Update sheet</button>
+      <button class="ghost" id="signOutBtn" type="button">Sign out</button>
+      <button class="ghost" id="closeSettingsBtn" type="button">Close</button>
+    </div>
+  </section>
+
+  <section id="app" hidden>
+    <div class="tabs">
+      <button class="tab-btn" id="todayTab" type="button" aria-selected="true">Today</button>
+      <button class="tab-btn" id="historyTab" type="button" aria-selected="false">History</button>
+    </div>
+
+    <div id="feedback"></div>
+
+    <div id="todayView">
+      <p class="date-heading" id="todayHeading"></p>
+      <div id="events"></div>
+    </div>
+
+    <div id="historyView" hidden>
+      <div id="historyContent"></div>
+    </div>
+  </section>
+
+  <footer>Your events, your Sheet, your Google account only.</footer>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+(function(){
+  const CLIENT_ID = '238839451728-qjhhmocvap3kk5chei3bv17n2hkjr0am.apps.googleusercontent.com';
+  const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets';
+  const SHEET_STORAGE = 'dt_sheet_id';
+  const TAB_NAME = 'Sheet1';
+
+  const setup = document.getElementById('setup');
+  const settingsPanel = document.getElementById('settingsPanel');
+  const settingsBtn = document.getElementById('settingsBtn');
+  const app = document.getElementById('app');
+  const feedback = document.getElementById('feedback');
+  const setupFeedback = document.getElementById('setupFeedback');
+  const eventsEl = document.getElementById('events');
+  const todayHeading = document.getElementById('todayHeading');
+  const signInRow = document.getElementById('signInRow');
+  const todayTab = document.getElementById('todayTab');
+  const historyTab = document.getElementById('historyTab');
+  const todayView = document.getElementById('todayView');
+  const historyView = document.getElementById('historyView');
+  const historyContent = document.getElementById('historyContent');
+
+  let tokenClient = null;
+  let accessToken = null;
+  let sheetId = null;
+  let logRows = []; // {row, date, eventId, title, start, attended, productive, tasks}
+  let saveTimers = {};
+
+  function getSheetId(){ try{ return localStorage.getItem(SHEET_STORAGE) || ''; }catch(e){ return ''; } }
+  function setSheetId(v){ try{ localStorage.setItem(SHEET_STORAGE, v); }catch(e){} }
+  function clearSheetId(){ try{ localStorage.removeItem(SHEET_STORAGE); }catch(e){} }
+
+  function extractSheetId(input){
+    input = (input || '').trim();
+    const m = input.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    if(m) return m[1];
+    if(/^[a-zA-Z0-9-_]{20,}$/.test(input)) return input;
+    return '';
+  }
+
+  function showFeedback(el, msg, ok){
+    el.innerHTML = '';
+    if(!msg) return;
+    const div = document.createElement('div');
+    div.className = 'notice' + (ok ? ' ok' : '');
+    div.textContent = msg;
+    el.appendChild(div);
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+
+  function todayStr(d){
+    d = d || new Date();
+    const pad = n => String(n).padStart(2,'0');
+    return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+  }
+  function isoWithOffset(d){
+    const pad = n => String(n).padStart(2,'0');
+    const offsetMin = -d.getTimezoneOffset();
+    const sign = offsetMin >= 0 ? '+' : '-';
+    const abs = Math.abs(offsetMin);
+    return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds())+sign+pad(Math.floor(abs/60))+':'+pad(abs%60);
+  }
+  function fmtTime(iso){
+    if(!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
+
+  // ---------- Auth ----------
+
+  function initGis(){
+    if(!window.google || !google.accounts) { setTimeout(initGis, 200); return; }
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SCOPES,
+      callback: function(resp){
+        if(resp.error){ showFeedback(setupFeedback, 'Sign-in failed: ' + resp.error, false); return; }
+        accessToken = resp.access_token;
+        onSignedIn();
+      }
+    });
+    signInRow.hidden = false;
+  }
+
+  document.getElementById('signInBtn').addEventListener('click', function(){
+    tokenClient.requestAccessToken();
+  });
+
+  function apiFetch(url, opts){
+    opts = opts || {};
+    opts.headers = Object.assign({}, opts.headers, { Authorization: 'Bearer ' + accessToken });
+    return fetch(url, opts).then(function(r){
+      if(!r.ok){
+        return r.json().catch(function(){ return null; }).then(function(body){
+          const msg = body && body.error && body.error.message ? body.error.message : ('HTTP ' + r.status);
+          const err = new Error(msg);
+          err.status = r.status;
+          throw err;
+        });
+      }
+      return r.json();
+    });
+  }
+
+  // ---------- Boot ----------
+
+  function boot(){
+    sheetId = getSheetId();
+    document.getElementById('sheetInput').value = sheetId ? ('https://docs.google.com/spreadsheets/d/' + sheetId) : '';
+    if(sheetId){
+      setup.hidden = true;
+      settingsBtn.hidden = false;
+      initGis();
+      // show sign-in directly since sheet already configured
+      setup.hidden = false;
+      document.querySelector('#setup h2').textContent = 'Sign in';
+      document.querySelector('#setup p').textContent = 'Reads today\'s events from Google Calendar and logs into your connected Sheet.';
+      document.getElementById('sheetInput').closest('.field').hidden = true;
+      document.getElementById('saveSheetBtn').hidden = true;
+    } else {
+      setup.hidden = false;
+      settingsBtn.hidden = true;
+    }
+  }
+
+  document.getElementById('saveSheetBtn').addEventListener('click', function(){
+    const id = extractSheetId(document.getElementById('sheetInput').value);
+    if(!id){ showFeedback(setupFeedback, 'Could not find a Sheet ID in that URL.', false); return; }
+    setSheetId(id);
+    sheetId = id;
+    showFeedback(setupFeedback, 'Sheet saved.', true);
+    initGis();
+  });
+
+  settingsBtn.addEventListener('click', function(){
+    document.getElementById('sheetInput2').value = 'https://docs.google.com/spreadsheets/d/' + getSheetId();
+    app.hidden = true;
+    setup.hidden = true;
+    settingsPanel.hidden = false;
+  });
+  document.getElementById('closeSettingsBtn').addEventListener('click', function(){
+    settingsPanel.hidden = true;
+    app.hidden = false;
+  });
+  document.getElementById('updateSheetBtn').addEventListener('click', function(){
+    const id = extractSheetId(document.getElementById('sheetInput2').value);
+    if(!id) return;
+    setSheetId(id);
+    sheetId = id;
+    settingsPanel.hidden = true;
+    app.hidden = false;
+    loadEverything();
+  });
+  document.getElementById('signOutBtn').addEventListener('click', function(){
+    if(accessToken && window.google && google.accounts){
+      google.accounts.oauth2.revoke(accessToken, function(){});
+    }
+    accessToken = null;
+    clearSheetId();
+    settingsPanel.hidden = true;
+    location.reload();
+  });
+
+  todayTab.addEventListener('click', function(){
+    todayTab.setAttribute('aria-selected', 'true');
+    historyTab.setAttribute('aria-selected', 'false');
+    todayView.hidden = false;
+    historyView.hidden = true;
+  });
+  historyTab.addEventListener('click', function(){
+    todayTab.setAttribute('aria-selected', 'false');
+    historyTab.setAttribute('aria-selected', 'true');
+    todayView.hidden = true;
+    historyView.hidden = false;
+    renderHistory();
+  });
+
+  function onSignedIn(){
+    setup.hidden = true;
+    settingsBtn.hidden = false;
+    app.hidden = false;
+    loadEverything();
+  }
+
+  function loadEverything(){
+    showFeedback(feedback, '');
+    eventsEl.innerHTML = '<p class="empty">Loading…</p>';
+    const now = new Date();
+    todayHeading.textContent = now.toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' });
+    const startOfDay = new Date(now); startOfDay.setHours(0,0,0,0);
+    const endOfDay = new Date(now); endOfDay.setHours(23,59,59,999);
+
+    Promise.all([
+      apiFetch('https://www.googleapis.com/calendar/v3/events?calendarId=primary&singleEvents=true&orderBy=startTime&timeMin=' +
+        encodeURIComponent(isoWithOffset(startOfDay)) + '&timeMax=' + encodeURIComponent(isoWithOffset(endOfDay))),
+      ensureHeader().then(loadLogRows)
+    ]).then(function(results){
+      const events = (results[0].items || []).filter(function(e){ return e.start && (e.start.dateTime || e.start.date); });
+      renderEvents(events);
+    }).catch(function(err){
+      eventsEl.innerHTML = '';
+      showFeedback(feedback, 'Load failed: ' + err.message, false);
+    });
+  }
+
+  // ---------- Sheets log storage ----------
+
+  function sheetRangeUrl(range){
+    return 'https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '/values/' + encodeURIComponent(range);
+  }
+
+  function ensureHeader(){
+    return apiFetch(sheetRangeUrl(TAB_NAME + '!A1:H1')).then(function(data){
+      if(data.values && data.values.length) return;
+      return apiFetch(sheetRangeUrl(TAB_NAME + '!A1:H1') + '?valueInputOption=RAW', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [['Date','EventID','Title','Start','Attended','Productive','Tasks','UpdatedAt']] })
+      });
+    });
+  }
+
+  function loadLogRows(){
+    return apiFetch(sheetRangeUrl(TAB_NAME + '!A2:H5000')).then(function(data){
+      logRows = (data.values || []).map(function(r, i){
+        let tasks = [];
+        try{ tasks = JSON.parse(r[6] || '[]'); }catch(e){ tasks = []; }
+        return {
+          row: i + 2,
+          date: r[0] || '',
+          eventId: r[1] || '',
+          title: r[2] || '',
+          start: r[3] || '',
+          attended: r[4] === 'TRUE',
+          productive: r[5] === 'TRUE',
+          tasks: tasks
+        };
+      });
+    });
+  }
+
+  function findLogRow(date, eventId){
+    for(let i = 0; i < logRows.length; i++){
+      if(logRows[i].date === date && logRows[i].eventId === eventId) return logRows[i];
+    }
+    return null;
+  }
+
+  function upsertLog(entry){
+    const values = [[entry.date, entry.eventId, entry.title, entry.start,
+      entry.attended ? 'TRUE' : 'FALSE', entry.productive ? 'TRUE' : 'FALSE',
+      JSON.stringify(entry.tasks), new Date().toISOString()]];
+    const existing = findLogRow(entry.date, entry.eventId);
+    if(existing){
+      const range = TAB_NAME + '!A' + existing.row + ':H' + existing.row;
+      return apiFetch(sheetRangeUrl(range) + '?valueInputOption=RAW', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: values })
+      }).then(function(){
+        Object.assign(existing, entry);
+      });
+    } else {
+      return apiFetch(sheetRangeUrl(TAB_NAME + '!A1:append') + '?valueInputOption=RAW&insertDataOption=INSERT_ROWS', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: values })
+      }).then(function(resp){
+        let row = logRows.length + 2;
+        const m = resp.updates && resp.updates.updatedRange && resp.updates.updatedRange.match(/![A-Z]+(\d+)/);
+        if(m) row = parseInt(m[1], 10);
+        const rec = Object.assign({ row: row }, entry);
+        logRows.push(rec);
+      });
+    }
+  }
+
+  // ---------- Today view ----------
+
+  function renderEvents(events){
+    eventsEl.innerHTML = '';
+    if(events.length === 0){
+      eventsEl.innerHTML = '<p class="empty">No events on your calendar today.</p>';
+      return;
+    }
+    const date = todayStr();
+    events.forEach(function(ev){
+      const startIso = ev.start.dateTime || ev.start.date;
+      const existing = findLogRow(date, ev.id) || { attended: false, productive: false, tasks: [] };
+
+      const card = document.createElement('div');
+      card.className = 'panel event-card';
+
+      const state = {
+        date: date, eventId: ev.id, title: ev.summary || 'Untitled', start: startIso,
+        attended: existing.attended, productive: existing.productive,
+        tasks: (existing.tasks || []).map(function(t){ return Object.assign({}, t); })
+      };
+
+      card.innerHTML =
+        '<div>' +
+          '<div class="event-time">' + escapeHtml(fmtTime(ev.start.dateTime)) + (ev.start.date ? 'All day' : '') + '</div>' +
+          '<div class="event-title">' + escapeHtml(state.title) + '</div>' +
+        '</div>' +
+        '<div class="segmented">' +
+          '<div class="seg-group"><label>Attended</label><div class="seg-buttons" data-role="attended">' +
+            '<button type="button" class="seg-btn yes" aria-pressed="' + (state.attended) + '">Yes</button>' +
+            '<button type="button" class="seg-btn no" aria-pressed="' + (!state.attended) + '">No</button>' +
+          '</div></div>' +
+          '<div class="seg-group"><label>Productive</label><div class="seg-buttons" data-role="productive">' +
+            '<button type="button" class="seg-btn yes" aria-pressed="' + (state.productive) + '">Yes</button>' +
+            '<button type="button" class="seg-btn no" aria-pressed="' + (!state.productive) + '">No</button>' +
+          '</div></div>' +
+        '</div>' +
+        '<div class="seg-group"><label>Tasks</label>' +
+          '<div class="task-list" data-role="taskList"></div>' +
+          '<div class="task-add"><input type="text" data-role="taskInput" placeholder="Add a task"><button class="ghost" type="button" data-role="taskAdd">Add</button></div>' +
+        '</div>' +
+        '<span class="save-state" data-role="saveState"></span>';
+
+      eventsEl.appendChild(card);
+
+      const saveStateEl = card.querySelector('[data-role="saveState"]');
+      function scheduleSave(){
+        saveStateEl.textContent = 'Saving…';
+        clearTimeout(saveTimers[ev.id]);
+        saveTimers[ev.id] = setTimeout(function(){
+          upsertLog(state).then(function(){
+            saveStateEl.textContent = 'Saved';
+          }).catch(function(err){
+            saveStateEl.textContent = 'Save failed: ' + err.message;
+          });
+        }, 500);
+      }
+
+      function setPressed(role, yesVal){
+        const group = card.querySelector('[data-role="' + role + '"]');
+        const buttons = group.querySelectorAll('.seg-btn');
+        buttons[0].setAttribute('aria-pressed', String(yesVal));
+        buttons[1].setAttribute('aria-pressed', String(!yesVal));
+      }
+
+      card.querySelector('[data-role="attended"]').addEventListener('click', function(e){
+        const btn = e.target.closest('.seg-btn');
+        if(!btn) return;
+        state.attended = btn.classList.contains('yes');
+        setPressed('attended', state.attended);
+        scheduleSave();
+      });
+      card.querySelector('[data-role="productive"]').addEventListener('click', function(e){
+        const btn = e.target.closest('.seg-btn');
+        if(!btn) return;
+        state.productive = btn.classList.contains('yes');
+        setPressed('productive', state.productive);
+        scheduleSave();
+      });
+
+      const taskListEl = card.querySelector('[data-role="taskList"]');
+      function renderTasks(){
+        taskListEl.innerHTML = '';
+        state.tasks.forEach(function(t, idx){
+          const item = document.createElement('div');
+          item.className = 'task-item' + (t.done ? ' done' : '');
+          item.innerHTML = '<input type="checkbox" ' + (t.done ? 'checked' : '') + '><span>' + escapeHtml(t.text) + '</span><button type="button" aria-label="Remove task">×</button>';
+          item.querySelector('input').addEventListener('change', function(ev2){
+            state.tasks[idx].done = ev2.target.checked;
+            item.classList.toggle('done', ev2.target.checked);
+            scheduleSave();
+          });
+          item.querySelector('button').addEventListener('click', function(){
+            state.tasks.splice(idx, 1);
+            renderTasks();
+            scheduleSave();
+          });
+          taskListEl.appendChild(item);
+        });
+      }
+      renderTasks();
+
+      const taskInput = card.querySelector('[data-role="taskInput"]');
+      function addTask(){
+        const val = taskInput.value.trim();
+        if(!val) return;
+        state.tasks.push({ text: val, done: false });
+        taskInput.value = '';
+        renderTasks();
+        scheduleSave();
+      }
+      card.querySelector('[data-role="taskAdd"]').addEventListener('click', addTask);
+      taskInput.addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){ e.preventDefault(); addTask(); }
+      });
+    });
+  }
+
+  // ---------- History view ----------
+
+  function renderHistory(){
+    historyContent.innerHTML = '';
+    if(logRows.length === 0){
+      historyContent.innerHTML = '<p class="empty">Nothing logged yet.</p>';
+      return;
+    }
+    const byTitle = {};
+    logRows.forEach(function(r){
+      if(!byTitle[r.title]) byTitle[r.title] = { days: 0, attended: 0, productive: 0, tasksTotal: 0, tasksDone: 0 };
+      const s = byTitle[r.title];
+      s.days++;
+      if(r.attended) s.attended++;
+      if(r.productive) s.productive++;
+      (r.tasks || []).forEach(function(t){ s.tasksTotal++; if(t.done) s.tasksDone++; });
+    });
+
+    const summaryPanel = document.createElement('div');
+    summaryPanel.className = 'panel';
+    summaryPanel.innerHTML = '<h2>By event</h2>';
+    const table = document.createElement('table');
+    table.className = 'hist';
+    table.innerHTML = '<thead><tr><th>Event</th><th>Days</th><th>Attended</th><th>Productive</th><th>Tasks</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    Object.keys(byTitle).sort().forEach(function(title){
+      const s = byTitle[title];
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + escapeHtml(title) + '</td>' +
+        '<td>' + s.days + '</td>' +
+        '<td>' + Math.round(100 * s.attended / s.days) + '%</td>' +
+        '<td>' + Math.round(100 * s.productive / s.days) + '%</td>' +
+        '<td>' + (s.tasksTotal ? (s.tasksDone + '/' + s.tasksTotal) : '—') + '</td>';
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    summaryPanel.appendChild(table);
+    historyContent.appendChild(summaryPanel);
+
+    const recentPanel = document.createElement('div');
+    recentPanel.className = 'panel';
+    recentPanel.innerHTML = '<h2>Recent log</h2>';
+    const rtable = document.createElement('table');
+    rtable.className = 'hist';
+    rtable.innerHTML = '<thead><tr><th>Date</th><th>Event</th><th>Attended</th><th>Productive</th><th>Tasks</th></tr></thead>';
+    const rbody = document.createElement('tbody');
+    logRows.slice().sort(function(a,b){ return b.date.localeCompare(a.date) || b.start.localeCompare(a.start); })
+      .slice(0, 30).forEach(function(r){
+        const done = (r.tasks || []).filter(function(t){ return t.done; }).length;
+        const total = (r.tasks || []).length;
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + escapeHtml(r.date) + '</td>' +
+          '<td>' + escapeHtml(r.title) + '</td>' +
+          '<td>' + (r.attended ? 'Yes' : 'No') + '</td>' +
+          '<td>' + (r.productive ? 'Yes' : 'No') + '</td>' +
+          '<td>' + (total ? (done + '/' + total) : '—') + '</td>';
+        rbody.appendChild(tr);
+      });
+    rtable.appendChild(rbody);
+    recentPanel.appendChild(rtable);
+    historyContent.appendChild(recentPanel);
+  }
+
+  boot();
+})();
+</script>
