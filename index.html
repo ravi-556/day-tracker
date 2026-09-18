@@ -439,7 +439,7 @@
         Object.assign(existing, entry);
       });
     } else {
-      return apiFetch(sheetRangeUrl(TAB_NAME + '!A1:append') + '?valueInputOption=RAW&insertDataOption=INSERT_ROWS', {
+      return apiFetch(sheetRangeUrl(TAB_NAME + '!A1') + ':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ values: values })
