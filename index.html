@@ -161,7 +161,7 @@
 </style>
 
 <div class="wrap">
-  <header class="narrow">
+  <header>
     <div class="title-block">
       <h1>Day Tracker</h1>
       <p>Today's calendar blocks — attended, productive, tasks done.</p>
@@ -196,10 +196,6 @@
       <button class="ghost" id="signOutBtn" type="button">Sign out</button>
       <button class="ghost" id="closeSettingsBtn" type="button">Close</button>
     </div>
-    <div class="row" style="margin-top:16px;">
-      <button class="ghost" id="seedDataBtn" type="button">Add sample test data</button>
-    </div>
-    <div id="seedFeedback" style="margin-top:10px;"></div>
   </section>
 
   <section id="app" hidden>
@@ -607,113 +603,6 @@
     app.hidden = false;
     loadEverything();
   });
-  document.getElementById('seedDataBtn').addEventListener('click', function(){
-    showFeedback(document.getElementById('seedFeedback'), 'Adding sample data…', true);
-    seedTestData().then(function(){
-      showFeedback(document.getElementById('seedFeedback'), 'Sample data added. Reopen the Tasks tab to see it.', true);
-    }).catch(function(err){
-      showFeedback(document.getElementById('seedFeedback'), 'Failed: ' + err.message, false);
-    });
-  });
-
-  function seedTestData(){
-    const now = new Date();
-    function daysAgo(n){ const d = new Date(now); d.setDate(d.getDate() - n); return d; }
-    function iso(d){ return d.toISOString(); }
-
-    const items = [
-      ['Write Q3 report', 'Summarize revenue, churn, and hiring numbers for the board deck.\nPull charts from the finance dashboard and get sign-off from the CFO before Friday.'],
-      ['Refactor auth module', 'Session handling still uses the old cookie-based flow.\nMigrate to the token refresh pattern and remove the legacy middleware once the new path is verified in staging.'],
-      ['Plan sprint 14', 'Groom the backlog with the team, size the carried-over tickets from sprint 13, and lock the sprint goal by Monday standup.'],
-      ['Fix flaky checkout test', 'The checkout E2E test fails intermittently in CI, seemingly a race condition around the payment webhook mock.\nAdd a proper wait condition instead of the fixed sleep.'],
-      ['Draft onboarding doc', 'New hires currently rely on tribal knowledge for local setup.\nWrite a step-by-step doc covering repo access, env vars, and the first PR checklist.'],
-      ['Migrate database indexes', 'Query plans show a full table scan on the orders table for the reporting queries.\nAdd a composite index and verify against a staging snapshot before running on prod.'],
-      ['Review PR backlog', 'Eight PRs have been open for over a week.\nTriage which are still relevant, ping the authors on stale ones, and clear whatever is ready to merge.'],
-      ['Design landing page v2', 'Current landing page has a 2% conversion rate.\nSketch a new hero section and pricing layout, then hand off to the designer for mockups.'],
-      ['Set up monitoring alerts', 'No alert fires when the queue backs up past a few thousand jobs.\nWire up a threshold alert in the existing monitoring dashboard and route it to the on-call channel.'],
-      ['Clean up dead code', 'The old v1 export pipeline is unused but still in the codebase.\nConfirm nothing references it, then delete the module and its tests.'],
-      ['Interview candidates', 'Three backend candidates in the pipeline this week.\nPrep the system design question and coordinate debrief time with the panel.'],
-      ['Update dependency versions', 'Several packages are two major versions behind, including one with a known CVE.\nUpdate incrementally and run the full test suite after each bump.'],
-      ['Prepare demo for stakeholders', 'Quarterly demo is Thursday.\nPull together the three features shipped this quarter into a short walkthrough script.'],
-      ['Research caching strategy', 'Repeated identical API calls are adding latency.\nCompare an in-memory cache vs. a Redis layer and write a short recommendation.'],
-      ['Fix mobile layout bug', 'The settings page overflows horizontally on narrow screens below 360px.\nTrack down the offending fixed-width element and make it responsive.'],
-      ['Write unit tests for billing', 'The billing module has almost no test coverage around proration logic.\nAdd tests for the edge cases: mid-cycle upgrades, downgrades, and cancellations.'],
-      ['Optimize image pipeline', 'Uploaded images are stored at full resolution with no compression.\nAdd a resize + compress step on upload and backfill existing assets.'],
-      ['Draft privacy policy update', 'New analytics vendor requires a policy update.\nDraft the new section and send to legal for review before publishing.'],
-      ['Consolidate API error handling', 'Error responses are inconsistent across endpoints — some return plain strings, others structured JSON.\nStandardize on one error shape across the API.'],
-      ['Plan Q4 roadmap', 'Gather input from each team lead on their top priority, then draft the roadmap doc for leadership review.']
-    ];
-    const statuses = ['not_started', 'in_progress', 'paused', 'completed'];
-    const tasks = [];
-    const history = [];
-
-    items.forEach(function(item, i){
-      const name = item[0];
-      const description = item[1];
-      const createdDaysAgo = 5 + i * 4.3; // spreads across ~90 days
-      const status = statuses[i % 4];
-      const id = 'seed_' + Date.now().toString(36) + '_' + i;
-      const createdAt = iso(daysAgo(createdDaysAgo));
-      let updatedAt = createdAt;
-      history.push({ taskId: id, from: '', to: 'not_started', changedAt: createdAt });
-      if(status !== 'not_started'){
-        const p1 = iso(daysAgo(createdDaysAgo - 1));
-        history.push({ taskId: id, from: 'not_started', to: 'in_progress', changedAt: p1 });
-        updatedAt = p1;
-        if(status === 'paused'){
-          const p2 = iso(daysAgo(createdDaysAgo - 3));
-          history.push({ taskId: id, from: 'in_progress', to: 'paused', changedAt: p2 });
-          updatedAt = p2;
-        } else if(status === 'completed'){
-          const p2 = iso(daysAgo(createdDaysAgo - 5));
-          history.push({ taskId: id, from: 'in_progress', to: 'completed', changedAt: p2 });
-          updatedAt = p2;
-        }
-      }
-      tasks.push({ id: id, name: '[Sample] ' + name, description: description, status: status, parentId: '', createdAt: createdAt, updatedAt: updatedAt });
-    });
-
-    // A parent with subtasks, all completed, to exercise the auto-complete rollup.
-    const parentId = 'seed_' + Date.now().toString(36) + '_parent';
-    const parentCreated = iso(daysAgo(20));
-    history.push({ taskId: parentId, from: '', to: 'not_started', changedAt: parentCreated });
-    tasks.push({ id: parentId, name: '[Sample] Ship v2 launch', description: 'Umbrella task for the v2 launch write-up.\nBreaks down into the subtasks below — this one auto-completes once all of them are done.', status: 'not_started', parentId: '', createdAt: parentCreated, updatedAt: parentCreated });
-    const subItems = [
-      ['Draft outline', 'Rough out the sections: what shipped, why it matters, what\'s next.'],
-      ['Collect data', 'Pull adoption numbers from the last two weeks to back up the key claims.'],
-      ['Write summary', 'Turn the outline and data into a final draft ready for review.']
-    ];
-    subItems.forEach(function(item, i){
-      const subId = 'seed_' + Date.now().toString(36) + '_sub' + i;
-      const subCreated = iso(daysAgo(18 - i * 2));
-      const subDone = iso(daysAgo(10 - i * 2));
-      history.push({ taskId: subId, from: '', to: 'not_started', changedAt: subCreated });
-      history.push({ taskId: subId, from: 'not_started', to: 'completed', changedAt: subDone });
-      tasks.push({ id: subId, name: '[Sample] ' + item[0], description: item[1], status: 'completed', parentId: parentId, createdAt: subCreated, updatedAt: subDone });
-    });
-    const parentTask = tasks.find(function(t){ return t.id === parentId; });
-    parentTask.status = 'completed';
-    parentTask.updatedAt = iso(daysAgo(9));
-    history.push({ taskId: parentId, from: 'not_started', to: 'completed', changedAt: parentTask.updatedAt });
-
-    const taskRows = tasks.map(function(t){ return [t.id, t.name, t.description, t.status, t.parentId, t.createdAt, t.updatedAt]; });
-    const historyRows = history.map(function(h){ return [h.taskId, h.from, h.to, h.changedAt]; });
-
-    return ensureAppSheets().then(function(){
-      return apiFetch(sheetRangeUrl(TASKS_TAB + '!A1') + ':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ values: taskRows })
-      });
-    }).then(function(){
-      return apiFetch(sheetRangeUrl(TASK_HISTORY_TAB + '!A1') + ':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ values: historyRows })
-      });
-    }).then(function(){
-      return Promise.all([loadTasks(), loadTaskHistory()]);
-    });
-  }
-
   document.getElementById('signOutBtn').addEventListener('click', function(){
     if(accessToken && window.google && google.accounts){
       google.accounts.oauth2.revoke(accessToken, function(){});
