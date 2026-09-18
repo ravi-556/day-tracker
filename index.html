@@ -275,12 +275,13 @@
 
       <div id="taskDetailPage" class="narrow" hidden>
         <div class="panel">
-          <div class="row" style="justify-content:space-between; align-items:flex-start;">
-            <h2 id="detailName" style="margin:0;"></h2>
-            <div class="row" style="gap:8px;">
-              <button class="ghost" id="createSubtaskBtn" type="button">+ Create subtask</button>
-              <button class="ghost" id="backFromDetailBtn" type="button">&larr; Back</button>
-            </div>
+          <div class="row" style="justify-content:flex-end; gap:8px;">
+            <button class="ghost" id="createSubtaskBtn" type="button">+ Create subtask</button>
+            <button class="ghost" id="backFromDetailBtn" type="button">&larr; Back</button>
+          </div>
+          <div class="field" style="margin-top:10px;">
+            <label for="detailName">Title</label>
+            <input type="text" id="detailName">
           </div>
           <p class="task-row-date" id="detailMeta"></p>
           <div class="field" style="margin-top:10px;">
@@ -531,19 +532,35 @@
     function daysAgo(n){ const d = new Date(now); d.setDate(d.getDate() - n); return d; }
     function iso(d){ return d.toISOString(); }
 
-    const names = [
-      'Write Q3 report', 'Refactor auth module', 'Plan sprint 14', 'Fix flaky checkout test',
-      'Draft onboarding doc', 'Migrate database indexes', 'Review PR backlog', 'Design landing page v2',
-      'Set up monitoring alerts', 'Clean up dead code', 'Interview candidates', 'Update dependency versions',
-      'Prepare demo for stakeholders', 'Research caching strategy', 'Fix mobile layout bug',
-      'Write unit tests for billing', 'Optimize image pipeline', 'Draft privacy policy update',
-      'Consolidate API error handling', 'Plan Q4 roadmap'
+    const items = [
+      ['Write Q3 report', 'Summarize revenue, churn, and hiring numbers for the board deck.\nPull charts from the finance dashboard and get sign-off from the CFO before Friday.'],
+      ['Refactor auth module', 'Session handling still uses the old cookie-based flow.\nMigrate to the token refresh pattern and remove the legacy middleware once the new path is verified in staging.'],
+      ['Plan sprint 14', 'Groom the backlog with the team, size the carried-over tickets from sprint 13, and lock the sprint goal by Monday standup.'],
+      ['Fix flaky checkout test', 'The checkout E2E test fails intermittently in CI, seemingly a race condition around the payment webhook mock.\nAdd a proper wait condition instead of the fixed sleep.'],
+      ['Draft onboarding doc', 'New hires currently rely on tribal knowledge for local setup.\nWrite a step-by-step doc covering repo access, env vars, and the first PR checklist.'],
+      ['Migrate database indexes', 'Query plans show a full table scan on the orders table for the reporting queries.\nAdd a composite index and verify against a staging snapshot before running on prod.'],
+      ['Review PR backlog', 'Eight PRs have been open for over a week.\nTriage which are still relevant, ping the authors on stale ones, and clear whatever is ready to merge.'],
+      ['Design landing page v2', 'Current landing page has a 2% conversion rate.\nSketch a new hero section and pricing layout, then hand off to the designer for mockups.'],
+      ['Set up monitoring alerts', 'No alert fires when the queue backs up past a few thousand jobs.\nWire up a threshold alert in the existing monitoring dashboard and route it to the on-call channel.'],
+      ['Clean up dead code', 'The old v1 export pipeline is unused but still in the codebase.\nConfirm nothing references it, then delete the module and its tests.'],
+      ['Interview candidates', 'Three backend candidates in the pipeline this week.\nPrep the system design question and coordinate debrief time with the panel.'],
+      ['Update dependency versions', 'Several packages are two major versions behind, including one with a known CVE.\nUpdate incrementally and run the full test suite after each bump.'],
+      ['Prepare demo for stakeholders', 'Quarterly demo is Thursday.\nPull together the three features shipped this quarter into a short walkthrough script.'],
+      ['Research caching strategy', 'Repeated identical API calls are adding latency.\nCompare an in-memory cache vs. a Redis layer and write a short recommendation.'],
+      ['Fix mobile layout bug', 'The settings page overflows horizontally on narrow screens below 360px.\nTrack down the offending fixed-width element and make it responsive.'],
+      ['Write unit tests for billing', 'The billing module has almost no test coverage around proration logic.\nAdd tests for the edge cases: mid-cycle upgrades, downgrades, and cancellations.'],
+      ['Optimize image pipeline', 'Uploaded images are stored at full resolution with no compression.\nAdd a resize + compress step on upload and backfill existing assets.'],
+      ['Draft privacy policy update', 'New analytics vendor requires a policy update.\nDraft the new section and send to legal for review before publishing.'],
+      ['Consolidate API error handling', 'Error responses are inconsistent across endpoints — some return plain strings, others structured JSON.\nStandardize on one error shape across the API.'],
+      ['Plan Q4 roadmap', 'Gather input from each team lead on their top priority, then draft the roadmap doc for leadership review.']
     ];
     const statuses = ['not_started', 'in_progress', 'paused', 'completed'];
     const tasks = [];
     const history = [];
 
-    names.forEach(function(name, i){
+    items.forEach(function(item, i){
+      const name = item[0];
+      const description = item[1];
       const createdDaysAgo = 5 + i * 4.3; // spreads across ~90 days
       const status = statuses[i % 4];
       const id = 'seed_' + Date.now().toString(36) + '_' + i;
@@ -564,21 +581,26 @@
           updatedAt = p2;
         }
       }
-      tasks.push({ id: id, name: '[Sample] ' + name, description: 'Sample data added for UI testing across filters.', status: status, parentId: '', createdAt: createdAt, updatedAt: updatedAt });
+      tasks.push({ id: id, name: '[Sample] ' + name, description: description, status: status, parentId: '', createdAt: createdAt, updatedAt: updatedAt });
     });
 
     // A parent with subtasks, all completed, to exercise the auto-complete rollup.
     const parentId = 'seed_' + Date.now().toString(36) + '_parent';
     const parentCreated = iso(daysAgo(20));
     history.push({ taskId: parentId, from: '', to: 'not_started', changedAt: parentCreated });
-    tasks.push({ id: parentId, name: '[Sample] Ship v2 launch', description: 'Parent task grouping the subtasks below.', status: 'not_started', parentId: '', createdAt: parentCreated, updatedAt: parentCreated });
-    ['Draft outline', 'Collect data', 'Write summary'].forEach(function(subName, i){
+    tasks.push({ id: parentId, name: '[Sample] Ship v2 launch', description: 'Umbrella task for the v2 launch write-up.\nBreaks down into the subtasks below — this one auto-completes once all of them are done.', status: 'not_started', parentId: '', createdAt: parentCreated, updatedAt: parentCreated });
+    const subItems = [
+      ['Draft outline', 'Rough out the sections: what shipped, why it matters, what\'s next.'],
+      ['Collect data', 'Pull adoption numbers from the last two weeks to back up the key claims.'],
+      ['Write summary', 'Turn the outline and data into a final draft ready for review.']
+    ];
+    subItems.forEach(function(item, i){
       const subId = 'seed_' + Date.now().toString(36) + '_sub' + i;
       const subCreated = iso(daysAgo(18 - i * 2));
       const subDone = iso(daysAgo(10 - i * 2));
       history.push({ taskId: subId, from: '', to: 'not_started', changedAt: subCreated });
       history.push({ taskId: subId, from: 'not_started', to: 'completed', changedAt: subDone });
-      tasks.push({ id: subId, name: '[Sample] ' + subName, description: '', status: 'completed', parentId: parentId, createdAt: subCreated, updatedAt: subDone });
+      tasks.push({ id: subId, name: '[Sample] ' + item[0], description: item[1], status: 'completed', parentId: parentId, createdAt: subCreated, updatedAt: subDone });
     });
     const parentTask = tasks.find(function(t){ return t.id === parentId; });
     parentTask.status = 'completed';
@@ -869,6 +891,14 @@
     return saveTaskRow(task);
   }
 
+  function updateTaskName(task, newName){
+    task.name = newName;
+    task.updatedAt = new Date().toISOString();
+    return saveTaskRow(task).then(function(){
+      renderChipsEverywhere();
+    });
+  }
+
   // A task with children is a "parent" and isn't itself directly attachable to an event.
   function isAttachable(task){
     return !tasksList.some(function(t){ return t.parentId === task.id; });
@@ -950,7 +980,7 @@
     createSubtaskBtn.hidden = isSubtask; // subtasks can't themselves have subtasks
     detailSubtasksSection.hidden = isSubtask;
 
-    detailName.textContent = task.name;
+    detailName.value = task.name;
     detailMeta.textContent = 'Created ' + (task.createdAt ? new Date(task.createdAt).toLocaleString() : '') +
       (task.parentId && tasksById[task.parentId] ? ' · Subtask of ' + tasksById[task.parentId].name : '');
     detailStatus.innerHTML = STATUS_ORDER.map(function(s){
@@ -967,6 +997,15 @@
         renderDetailHistory(task);
         renderChipsEverywhere();
       });
+    };
+    let nameTimer;
+    detailName.oninput = function(){
+      clearTimeout(nameTimer);
+      nameTimer = setTimeout(function(){
+        const val = detailName.value.trim();
+        if(!val) return;
+        updateTaskName(task, val);
+      }, 600);
     };
     let descTimer;
     detailDescription.oninput = function(){
