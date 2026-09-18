@@ -260,10 +260,11 @@
               </select>
             </div>
             <div class="field">
-              <label for="newTaskParent">Parent task</label>
-              <select id="newTaskParent">
-                <option value="">No parent (top-level)</option>
-              </select>
+              <label for="newTaskParentInput">Parent task</label>
+              <div class="combo">
+                <input type="text" id="newTaskParentInput" placeholder="Search a task, or leave blank" autocomplete="off">
+                <div class="combo-dropdown" id="newTaskParentDropdown" hidden></div>
+              </div>
             </div>
           </div>
           <div class="row" style="margin-top:16px;">
@@ -276,7 +277,10 @@
         <div class="panel">
           <div class="row" style="justify-content:space-between; align-items:flex-start;">
             <h2 id="detailName" style="margin:0;"></h2>
-            <button class="ghost" id="backFromDetailBtn" type="button">&larr; Back</button>
+            <div class="row" style="gap:8px;">
+              <button class="ghost" id="createSubtaskBtn" type="button">+ Create subtask</button>
+              <button class="ghost" id="backFromDetailBtn" type="button">&larr; Back</button>
+            </div>
           </div>
           <p class="task-row-date" id="detailMeta"></p>
           <div class="field" style="margin-top:10px;">
@@ -337,12 +341,14 @@
   const newTaskName = document.getElementById('newTaskName');
   const newTaskDesc = document.getElementById('newTaskDesc');
   const newTaskStatus = document.getElementById('newTaskStatus');
-  const newTaskParent = document.getElementById('newTaskParent');
+  const newTaskParentInput = document.getElementById('newTaskParentInput');
+  const newTaskParentDropdown = document.getElementById('newTaskParentDropdown');
   const taskListPage = document.getElementById('taskListPage');
   const taskCreatePage = document.getElementById('taskCreatePage');
   const taskDetailPage = document.getElementById('taskDetailPage');
   const createTaskBtn = document.getElementById('createTaskBtn');
   const cancelCreateBtn = document.getElementById('cancelCreateBtn');
+  const createSubtaskBtn = document.getElementById('createSubtaskBtn');
   const backFromDetailBtn = document.getElementById('backFromDetailBtn');
   const detailName = document.getElementById('detailName');
   const detailMeta = document.getElementById('detailMeta');
@@ -361,6 +367,9 @@
   let taskFilterScope = 'last30'; // 'last30' | 'month' | 'all'
   let taskFilterMonth = '';
   let taskFilterStatuses = new Set(STATUS_ORDER);
+  let newTaskParentId = '';
+  let currentDetailTask = null;
+  let createReturnTask = null; // task whose detail page to return to after save/cancel, or null for the list
 
   function getSheetId(){ try{ return localStorage.getItem(SHEET_STORAGE) || ''; }catch(e){ return ''; } }
   function setSheetId(v){ try{ localStorage.setItem(SHEET_STORAGE, v); }catch(e){} }
@@ -880,11 +889,23 @@
     renderTasksPage();
   }
 
-  function showTaskCreatePage(){
+  function showTaskCreatePage(parentTask){
     taskListPage.hidden = true;
     taskCreatePage.hidden = false;
     taskDetailPage.hidden = true;
-    populateParentSelect();
+    createReturnTask = parentTask || null;
+    if(parentTask){
+      newTaskParentId = parentTask.id;
+      newTaskParentInput.value = parentTask.name;
+    } else {
+      newTaskParentId = '';
+      newTaskParentInput.value = '';
+    }
+  }
+
+  function returnFromCreatePage(){
+    if(createReturnTask){ showTaskDetailPage(createReturnTask); }
+    else { showTaskListPage(); }
   }
 
   function renderDetailHistory(task){
@@ -904,6 +925,8 @@
     taskListPage.hidden = true;
     taskCreatePage.hidden = true;
     taskDetailPage.hidden = false;
+    currentDetailTask = task;
+    createSubtaskBtn.hidden = !!task.parentId; // subtasks can't themselves have subtasks
 
     detailName.textContent = task.name;
     detailMeta.textContent = 'Created ' + (task.createdAt ? new Date(task.createdAt).toLocaleString() : '') +
@@ -931,25 +954,68 @@
     };
   }
 
-  createTaskBtn.addEventListener('click', showTaskCreatePage);
+  createTaskBtn.addEventListener('click', function(){ showTaskCreatePage(); });
+  createSubtaskBtn.addEventListener('click', function(){ showTaskCreatePage(currentDetailTask); });
   cancelCreateBtn.addEventListener('click', function(){
     newTaskName.value = '';
     newTaskDesc.value = '';
     newTaskStatus.value = 'not_started';
-    showTaskListPage();
+    returnFromCreatePage();
   });
   backFromDetailBtn.addEventListener('click', showTaskListPage);
 
-  // ---------- Tasks page ----------
+  function closeParentDropdown(){ newTaskParentDropdown.hidden = true; newTaskParentDropdown.innerHTML = ''; }
 
-  function populateParentSelect(){
-    const current = newTaskParent.value;
-    const topLevel = tasksList.filter(function(t){ return !t.parentId; })
+  function openParentDropdown(){
+    const q = newTaskParentInput.value.trim().toLowerCase();
+    const options = tasksList.filter(function(t){ return !t.parentId; })
+      .filter(function(t){ return !q || t.name.toLowerCase().indexOf(q) !== -1; })
       .sort(function(a, b){ return (a.name || '').localeCompare(b.name || ''); });
-    newTaskParent.innerHTML = '<option value="">No parent (top-level)</option>' +
-      topLevel.map(function(t){ return '<option value="' + t.id + '">' + escapeHtml(t.name) + '</option>'; }).join('');
-    if(topLevel.some(function(t){ return t.id === current; })) newTaskParent.value = current;
+
+    newTaskParentDropdown.innerHTML = '';
+
+    const noneOpt = document.createElement('div');
+    noneOpt.className = 'combo-option';
+    noneOpt.innerHTML = '<span>No parent (top-level)</span>';
+    noneOpt.addEventListener('mousedown', function(e){ e.preventDefault(); });
+    noneOpt.addEventListener('click', function(){
+      newTaskParentId = '';
+      newTaskParentInput.value = '';
+      closeParentDropdown();
+    });
+    newTaskParentDropdown.appendChild(noneOpt);
+
+    options.slice(0, 30).forEach(function(t){
+      const opt = document.createElement('div');
+      opt.className = 'combo-option';
+      opt.innerHTML = '<span>' + escapeHtml(t.name) + '</span><span class="badge ' + t.status + '">' + STATUS_LABELS[t.status] + '</span>';
+      opt.addEventListener('mousedown', function(e){ e.preventDefault(); });
+      opt.addEventListener('click', function(){
+        newTaskParentId = t.id;
+        newTaskParentInput.value = t.name;
+        closeParentDropdown();
+      });
+      newTaskParentDropdown.appendChild(opt);
+    });
+
+    newTaskParentDropdown.hidden = false;
   }
+
+  newTaskParentInput.addEventListener('focus', openParentDropdown);
+  newTaskParentInput.addEventListener('input', function(){
+    newTaskParentId = '';
+    openParentDropdown();
+  });
+  newTaskParentInput.addEventListener('blur', function(){ setTimeout(closeParentDropdown, 150); });
+  newTaskParentInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      const firstOpt = newTaskParentDropdown.querySelector('.combo-option');
+      if(firstOpt) firstOpt.click();
+    }
+  });
+
+  // ---------- Tasks page ----------
 
   function renderTaskRow(t){
     const row = document.createElement('div');
@@ -1017,7 +1083,6 @@
   }
 
   function renderTasksPage(){
-    populateParentSelect();
     taskPageList.innerHTML = '';
     const filtered = applyTaskFilters(tasksList)
       .sort(function(a, b){ return (b.createdAt || '').localeCompare(a.createdAt || ''); });
@@ -1061,11 +1126,11 @@
   document.getElementById('addTaskBtn').addEventListener('click', function(){
     const name = newTaskName.value.trim();
     if(!name) return;
-    createTask(name, newTaskDesc.value.trim(), newTaskStatus.value, newTaskParent.value).then(function(){
+    createTask(name, newTaskDesc.value.trim(), newTaskStatus.value, newTaskParentId).then(function(){
       newTaskName.value = '';
       newTaskDesc.value = '';
       newTaskStatus.value = 'not_started';
-      showTaskListPage();
+      returnFromCreatePage();
     });
   });
   newTaskName.addEventListener('keydown', function(e){
