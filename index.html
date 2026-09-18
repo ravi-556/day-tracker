@@ -37,7 +37,8 @@
     font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
     margin:0; padding:0 20px; -webkit-font-smoothing:antialiased;
   }
-  .wrap{ max-width:640px; margin:0 auto; padding-block:36px 64px; display:flex; flex-direction:column; gap:24px; }
+  .wrap{ max-width:1080px; margin:0 auto; padding-block:36px 64px; display:flex; flex-direction:column; gap:24px; }
+  .narrow{ max-width:640px; margin:0 auto; width:100%; }
   header{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; border-bottom:1px solid var(--line); padding-bottom:18px; }
   .title-block h1{ font-family:"Fraunces", Georgia, serif; font-weight:600; font-size:1.6rem; letter-spacing:-0.01em; margin:0; }
   .title-block p{ margin:4px 0 0; color:var(--ink-soft); font-size:0.85rem; }
@@ -73,8 +74,13 @@
   .notice.ok{ background:var(--moss-soft); color:var(--moss-deep); }
   .empty{ color:var(--ink-soft); font-size:0.9rem; padding:8px 4px; }
 
+  #todayView{ display:flex; flex-direction:column; gap:16px; }
+  #tasksView{ display:flex; flex-direction:column; gap:16px; }
+  #historyContent{ display:flex; flex-direction:column; gap:16px; }
+
   .date-heading{ font-family:"Fraunces", Georgia, serif; font-size:1.1rem; font-weight:600; margin:0; }
 
+  #events{ display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px; align-items:start; }
   .event-card{ display:flex; flex-direction:column; gap:12px; }
   .event-card .event-time{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.78rem; color:var(--ink-soft); }
   .event-card .event-title{ font-size:1.02rem; font-weight:600; margin:2px 0 0; }
@@ -135,7 +141,7 @@
 </style>
 
 <div class="wrap">
-  <header>
+  <header class="narrow">
     <div class="title-block">
       <h1>Day Tracker</h1>
       <p>Today's calendar blocks — attended, productive, tasks done.</p>
@@ -143,7 +149,7 @@
     <button id="settingsBtn" type="button" aria-label="Settings" hidden>⚙</button>
   </header>
 
-  <section id="setup" class="panel">
+  <section id="setup" class="panel narrow">
     <h2>Connect Google</h2>
     <p>Reads today's events from your Google Calendar and logs your check-offs into a Google Sheet you own. Nothing goes anywhere else.</p>
     <div class="field">
@@ -159,7 +165,7 @@
     </div>
   </section>
 
-  <section id="settingsPanel" class="panel" hidden>
+  <section id="settingsPanel" class="panel narrow" hidden>
     <h2>Settings</h2>
     <div class="field">
       <label for="sheetInput2">Google Sheet URL or ID</label>
@@ -201,7 +207,7 @@
           <div class="field" style="flex:1 1 160px;">
             <label for="newTaskStatus">Status</label>
             <select id="newTaskStatus">
-              <option value="not_started" selected>Not started</option>
+              <option value="not_started" selected>Open</option>
               <option value="in_progress">In progress</option>
               <option value="paused">Paused</option>
               <option value="completed">Completed</option>
@@ -217,7 +223,7 @@
         </div>
       </div>
 
-      <div class="panel" style="margin-top:16px;">
+      <div class="panel">
         <div class="row">
           <div class="seg-group">
             <label>Show</label>
@@ -229,7 +235,7 @@
           <div class="seg-group">
             <label>Status</label>
             <div class="seg-buttons" id="statusFilter">
-              <button type="button" class="seg-btn" data-status="not_started" aria-pressed="true">Not started</button>
+              <button type="button" class="seg-btn" data-status="not_started" aria-pressed="true">Open</button>
               <button type="button" class="seg-btn" data-status="in_progress" aria-pressed="true">In progress</button>
               <button type="button" class="seg-btn" data-status="paused" aria-pressed="true">Paused</button>
               <button type="button" class="seg-btn" data-status="completed" aria-pressed="true">Completed</button>
@@ -238,7 +244,7 @@
         </div>
       </div>
 
-      <div class="panel" style="margin-top:16px;">
+      <div class="panel">
         <div id="taskPageList"></div>
       </div>
     </div>
@@ -283,7 +289,7 @@
   const TASKS_TAB = 'Tasks';
   const TASK_HISTORY_TAB = 'TaskHistory';
   const STATUS_ORDER = ['not_started', 'in_progress', 'paused', 'completed'];
-  const STATUS_LABELS = { not_started: 'Not started', in_progress: 'In progress', paused: 'Paused', completed: 'Completed' };
+  const STATUS_LABELS = { not_started: 'Open', in_progress: 'In progress', paused: 'Paused', completed: 'Completed' };
   const TASKS_HEADER = ['TaskID', 'Name', 'Description', 'Status', 'ParentID', 'CreatedAt', 'UpdatedAt'];
   const TASK_HISTORY_HEADER = ['TaskID', 'FromStatus', 'ToStatus', 'ChangedAt'];
 
