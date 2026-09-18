@@ -369,7 +369,7 @@
     const endOfDay = new Date(now); endOfDay.setHours(23,59,59,999);
 
     Promise.all([
-      apiFetch('https://www.googleapis.com/calendar/v3/events?calendarId=primary&singleEvents=true&orderBy=startTime&timeMin=' +
+      apiFetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&timeMin=' +
         encodeURIComponent(isoWithOffset(startOfDay)) + '&timeMax=' + encodeURIComponent(isoWithOffset(endOfDay))),
       ensureHeader().then(loadLogRows)
     ]).then(function(results){
