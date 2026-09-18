@@ -43,7 +43,7 @@
   .title-block p{ margin:4px 0 0; color:var(--ink-soft); font-size:0.85rem; }
   #settingsBtn{ background:none; border:1px solid var(--line); color:var(--ink-soft); width:34px; height:34px; border-radius:8px; font-size:1rem; cursor:pointer; flex:none; }
   #settingsBtn:hover{ color:var(--ink); border-color:var(--moss); }
-  button:focus-visible, input:focus-visible, a:focus-visible{ outline:2px solid var(--moss); outline-offset:2px; }
+  button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible{ outline:2px solid var(--moss); outline-offset:2px; }
   [hidden]{ display:none !important; }
   .panel{ background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:20px; box-shadow:var(--shadow); }
   .panel h2{ font-family:"Fraunces", Georgia, serif; font-size:1.1rem; font-weight:600; margin:0 0 6px; }
@@ -51,7 +51,7 @@
   .panel ol{ margin:0 0 16px; padding-left:1.2em; color:var(--ink-soft); font-size:0.92rem; line-height:1.6; }
   .panel a{ color:var(--moss-deep); }
   label{ font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-soft); font-weight:500; }
-  input[type="text"], input[type="password"]{
+  input[type="text"], input[type="password"], select{
     width:100%; font-family:inherit; font-size:0.98rem; color:var(--ink); background:var(--paper);
     border:1px solid var(--line); border-radius:8px; padding:11px 12px;
   }
@@ -88,16 +88,6 @@
   .seg-btn[aria-pressed="true"]{ background:var(--moss); border-color:var(--moss); color:var(--paper); }
   .seg-btn.no[aria-pressed="true"]{ background:var(--clay); border-color:var(--clay); }
 
-  .task-list{ display:flex; flex-direction:column; gap:6px; }
-  .task-item{ display:flex; align-items:center; gap:8px; font-size:0.9rem; }
-  .task-item span{ flex:1; }
-  .task-item.done span{ text-decoration:line-through; color:var(--ink-soft); }
-  .task-item button{ background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:0.9rem; padding:2px 6px; }
-  .task-item button:hover{ color:var(--clay); }
-  .task-add{ display:flex; gap:8px; }
-  .task-add input{ flex:1; }
-  .task-add button{ flex:none; }
-
   .save-state{ font-size:0.76rem; color:var(--ink-soft); font-family:"IBM Plex Mono", ui-monospace, monospace; }
 
   table.hist{ width:100%; border-collapse:collapse; font-size:0.86rem; }
@@ -107,6 +97,31 @@
   .tabs{ display:flex; gap:8px; border-bottom:1px solid var(--line); }
   .tab-btn{ font-family:inherit; font-size:0.9rem; background:none; border:none; color:var(--ink-soft); padding:10px 4px; cursor:pointer; border-bottom:2px solid transparent; }
   .tab-btn[aria-selected="true"]{ color:var(--ink); border-bottom-color:var(--moss); font-weight:600; }
+
+  .badge{ font-size:0.68rem; padding:3px 9px; border-radius:999px; font-weight:600; white-space:nowrap; letter-spacing:0.02em; }
+  .badge.not_started{ background:var(--line); color:var(--ink-soft); }
+  .badge.in_progress{ background:var(--moss-soft); color:var(--moss-deep); }
+  .badge.paused{ background:var(--clay-soft); color:var(--clay); }
+  .badge.completed{ background:var(--moss); color:var(--paper); }
+
+  .chips{ display:flex; flex-direction:column; gap:8px; }
+  .chip{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+  .chip .chip-name{ flex:1 1 100px; font-size:0.9rem; min-width:0; }
+  .chip button.remove{ background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:0.95rem; padding:2px 4px; flex:none; }
+  .chip button.remove:hover{ color:var(--clay); }
+
+  .combo{ position:relative; }
+  .combo-dropdown{ position:absolute; top:calc(100% + 4px); left:0; right:0; background:var(--surface); border:1px solid var(--line); border-radius:8px; box-shadow:var(--shadow); max-height:220px; overflow-y:auto; z-index:10; }
+  .combo-option{ padding:9px 12px; font-size:0.9rem; cursor:pointer; display:flex; align-items:center; gap:8px; justify-content:space-between; }
+  .combo-option:hover{ background:var(--moss-soft); }
+  .combo-option.create{ color:var(--moss-deep); font-weight:600; }
+
+  .task-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 4px; border-bottom:1px solid var(--line); }
+  .task-row:last-child{ border-bottom:none; }
+  .task-row-main{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .task-row-name{ font-size:0.94rem; font-weight:500; }
+  .task-row-date{ font-size:0.76rem; color:var(--ink-soft); }
+  .task-row select{ width:auto; flex:none; }
 
   footer{ text-align:center; font-size:0.76rem; color:var(--ink-soft); padding-top:8px; }
 </style>
@@ -152,6 +167,7 @@
   <section id="app" hidden>
     <div class="tabs">
       <button class="tab-btn" id="todayTab" type="button" aria-selected="true">Today</button>
+      <button class="tab-btn" id="tasksTab" type="button" aria-selected="false">Tasks</button>
       <button class="tab-btn" id="historyTab" type="button" aria-selected="false">History</button>
     </div>
 
@@ -160,6 +176,32 @@
     <div id="todayView">
       <p class="date-heading" id="todayHeading"></p>
       <div id="events"></div>
+    </div>
+
+    <div id="tasksView" hidden>
+      <div class="panel">
+        <h2>Add a task</h2>
+        <div class="row">
+          <div class="field" style="flex:2 1 240px;">
+            <label for="newTaskName">Task name</label>
+            <input id="newTaskName" type="text" placeholder="e.g. Refactor billing module">
+          </div>
+          <div class="field" style="flex:1 1 160px;">
+            <label for="newTaskStatus">Status</label>
+            <select id="newTaskStatus">
+              <option value="not_started" selected>Not started</option>
+              <option value="in_progress">In progress</option>
+              <option value="paused">Paused</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+          <button class="primary" id="addTaskBtn" type="button">Add task</button>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:16px;">
+        <h2>All tasks</h2>
+        <div id="taskPageList"></div>
+      </div>
     </div>
 
     <div id="historyView" hidden>
@@ -177,6 +219,9 @@
   const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets';
   const SHEET_STORAGE = 'dt_sheet_id';
   const TAB_NAME = 'Sheet1';
+  const TASKS_TAB = 'Tasks';
+  const STATUS_ORDER = ['not_started', 'in_progress', 'paused', 'completed'];
+  const STATUS_LABELS = { not_started: 'Not started', in_progress: 'In progress', paused: 'Paused', completed: 'Completed' };
 
   const setup = document.getElementById('setup');
   const settingsPanel = document.getElementById('settingsPanel');
@@ -189,14 +234,21 @@
   const signInRow = document.getElementById('signInRow');
   const todayTab = document.getElementById('todayTab');
   const historyTab = document.getElementById('historyTab');
+  const tasksTab = document.getElementById('tasksTab');
   const todayView = document.getElementById('todayView');
   const historyView = document.getElementById('historyView');
+  const tasksView = document.getElementById('tasksView');
   const historyContent = document.getElementById('historyContent');
+  const taskPageList = document.getElementById('taskPageList');
+  const newTaskName = document.getElementById('newTaskName');
+  const newTaskStatus = document.getElementById('newTaskStatus');
 
   let tokenClient = null;
   let accessToken = null;
   let sheetId = null;
-  let logRows = []; // {row, date, eventId, title, start, attended, productive, tasks}
+  let logRows = []; // {row, date, eventId, title, start, attended, productive, tasks:[{taskId,done}]}
+  let tasksList = []; // {row, id, name, status, createdAt, updatedAt}
+  let tasksById = {};
   let saveTimers = {};
 
   function getSheetId(){ try{ return localStorage.getItem(SHEET_STORAGE) || ''; }catch(e){ return ''; } }
@@ -224,6 +276,10 @@
     return String(s).replace(/[&<>"']/g, function(c){
       return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
     });
+  }
+
+  function generateId(){
+    return 't_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
 
   function todayStr(d){
@@ -339,19 +395,19 @@
     location.reload();
   });
 
-  todayTab.addEventListener('click', function(){
-    todayTab.setAttribute('aria-selected', 'true');
-    historyTab.setAttribute('aria-selected', 'false');
-    todayView.hidden = false;
-    historyView.hidden = true;
-  });
-  historyTab.addEventListener('click', function(){
-    todayTab.setAttribute('aria-selected', 'false');
-    historyTab.setAttribute('aria-selected', 'true');
-    todayView.hidden = true;
-    historyView.hidden = false;
-    renderHistory();
-  });
+  function selectTab(which){
+    todayTab.setAttribute('aria-selected', String(which === 'today'));
+    tasksTab.setAttribute('aria-selected', String(which === 'tasks'));
+    historyTab.setAttribute('aria-selected', String(which === 'history'));
+    todayView.hidden = which !== 'today';
+    tasksView.hidden = which !== 'tasks';
+    historyView.hidden = which !== 'history';
+    if(which === 'history') renderHistory();
+    if(which === 'tasks') renderTasksPage();
+  }
+  todayTab.addEventListener('click', function(){ selectTab('today'); });
+  tasksTab.addEventListener('click', function(){ selectTab('tasks'); });
+  historyTab.addEventListener('click', function(){ selectTab('history'); });
 
   function onSignedIn(){
     setup.hidden = true;
@@ -371,7 +427,8 @@
     Promise.all([
       apiFetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&timeMin=' +
         encodeURIComponent(isoWithOffset(startOfDay)) + '&timeMax=' + encodeURIComponent(isoWithOffset(endOfDay))),
-      ensureHeader().then(loadLogRows)
+      ensureHeader().then(loadLogRows),
+      ensureTasksSheet().then(loadTasks)
     ]).then(function(results){
       const events = (results[0].items || []).filter(function(e){ return e.start && (e.start.dateTime || e.start.date); });
       renderEvents(events);
@@ -381,7 +438,7 @@
     });
   }
 
-  // ---------- Sheets log storage ----------
+  // ---------- Sheets helpers ----------
 
   function sheetRangeUrl(range){
     return 'https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '/values/' + encodeURIComponent(range);
@@ -453,10 +510,120 @@
     }
   }
 
+  // ---------- Tasks master list ----------
+
+  function ensureTasksSheet(){
+    return apiFetch('https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '?fields=sheets.properties.title')
+      .then(function(meta){
+        const titles = (meta.sheets || []).map(function(s){ return s.properties.title; });
+        if(titles.indexOf(TASKS_TAB) === -1){
+          return apiFetch('https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + ':batchUpdate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ requests: [{ addSheet: { properties: { title: TASKS_TAB } } }] })
+          });
+        }
+      }).then(function(){
+        return apiFetch(sheetRangeUrl(TASKS_TAB + '!A1:E1')).then(function(data){
+          if(data.values && data.values.length) return;
+          return apiFetch(sheetRangeUrl(TASKS_TAB + '!A1:E1') + '?valueInputOption=RAW', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ values: [['TaskID','Name','Status','CreatedAt','UpdatedAt']] })
+          });
+        });
+      });
+  }
+
+  function loadTasks(){
+    return apiFetch(sheetRangeUrl(TASKS_TAB + '!A2:E5000')).then(function(data){
+      tasksList = (data.values || []).map(function(r, i){
+        return { row: i + 2, id: r[0] || '', name: r[1] || '', status: r[2] || 'not_started', createdAt: r[3] || '', updatedAt: r[4] || '' };
+      });
+      tasksById = {};
+      tasksList.forEach(function(t){ tasksById[t.id] = t; });
+    });
+  }
+
+  function createTask(name, status){
+    const now = new Date().toISOString();
+    const task = { id: generateId(), name: name, status: status, createdAt: now, updatedAt: now };
+    return apiFetch(sheetRangeUrl(TASKS_TAB + '!A1') + ':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [[task.id, task.name, task.status, task.createdAt, task.updatedAt]] })
+    }).then(function(resp){
+      let row = tasksList.length + 2;
+      const m = resp.updates && resp.updates.updatedRange && resp.updates.updatedRange.match(/![A-Z]+(\d+)/);
+      if(m) row = parseInt(m[1], 10);
+      task.row = row;
+      tasksList.push(task);
+      tasksById[task.id] = task;
+      return task;
+    });
+  }
+
+  function updateTaskStatus(task, newStatus){
+    task.status = newStatus;
+    task.updatedAt = new Date().toISOString();
+    const range = TASKS_TAB + '!A' + task.row + ':E' + task.row;
+    return apiFetch(sheetRangeUrl(range) + '?valueInputOption=RAW', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [[task.id, task.name, task.status, task.createdAt, task.updatedAt]] })
+    });
+  }
+
+  function renderTasksPage(){
+    taskPageList.innerHTML = '';
+    if(tasksList.length === 0){
+      taskPageList.innerHTML = '<p class="empty">No tasks yet.</p>';
+      return;
+    }
+    const ordered = tasksList.slice().sort(function(a, b){ return (b.createdAt || '').localeCompare(a.createdAt || ''); });
+    ordered.forEach(function(t){
+      const row = document.createElement('div');
+      row.className = 'task-row';
+      row.innerHTML =
+        '<div class="task-row-main">' +
+          '<span class="task-row-name">' + escapeHtml(t.name) + '</span>' +
+          '<span class="task-row-date">Created ' + (t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '') + '</span>' +
+        '</div>' +
+        '<select>' + STATUS_ORDER.map(function(s){
+          return '<option value="' + s + '"' + (s === t.status ? ' selected' : '') + '>' + STATUS_LABELS[s] + '</option>';
+        }).join('') + '</select>';
+      row.querySelector('select').addEventListener('change', function(e){
+        updateTaskStatus(t, e.target.value).then(function(){
+          renderChipsEverywhere();
+        });
+      });
+      taskPageList.appendChild(row);
+    });
+  }
+
+  let chipRefreshFns = [];
+  function renderChipsEverywhere(){
+    chipRefreshFns.forEach(function(fn){ fn(); });
+  }
+
+  document.getElementById('addTaskBtn').addEventListener('click', function(){
+    const name = newTaskName.value.trim();
+    if(!name) return;
+    createTask(name, newTaskStatus.value).then(function(){
+      newTaskName.value = '';
+      newTaskStatus.value = 'not_started';
+      renderTasksPage();
+    });
+  });
+  newTaskName.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('addTaskBtn').click(); }
+  });
+
   // ---------- Today view ----------
 
   function renderEvents(events){
     eventsEl.innerHTML = '';
+    chipRefreshFns = [];
     if(events.length === 0){
       eventsEl.innerHTML = '<p class="empty">No events on your calendar today.</p>';
       return;
@@ -491,8 +658,11 @@
           '</div></div>' +
         '</div>' +
         '<div class="seg-group"><label>Tasks</label>' +
-          '<div class="task-list" data-role="taskList"></div>' +
-          '<div class="task-add"><input type="text" data-role="taskInput" placeholder="Add a task"><button class="ghost" type="button" data-role="taskAdd">Add</button></div>' +
+          '<div class="chips" data-role="taskChips"></div>' +
+          '<div class="combo">' +
+            '<input type="text" data-role="taskCombo" placeholder="Search or add a task" autocomplete="off">' +
+            '<div class="combo-dropdown" data-role="taskDropdown" hidden></div>' +
+          '</div>' +
         '</div>' +
         '<span class="save-state" data-role="saveState"></span>';
 
@@ -533,40 +703,106 @@
         scheduleSave();
       });
 
-      const taskListEl = card.querySelector('[data-role="taskList"]');
-      function renderTasks(){
-        taskListEl.innerHTML = '';
-        state.tasks.forEach(function(t, idx){
-          const item = document.createElement('div');
-          item.className = 'task-item' + (t.done ? ' done' : '');
-          item.innerHTML = '<input type="checkbox" ' + (t.done ? 'checked' : '') + '><span>' + escapeHtml(t.text) + '</span><button type="button" aria-label="Remove task">×</button>';
-          item.querySelector('input').addEventListener('change', function(ev2){
-            state.tasks[idx].done = ev2.target.checked;
-            item.classList.toggle('done', ev2.target.checked);
+      // ---- task combo (multi-select existing tasks + inline create) ----
+      const chipsEl = card.querySelector('[data-role="taskChips"]');
+      const comboInput = card.querySelector('[data-role="taskCombo"]');
+      const dropdownEl = card.querySelector('[data-role="taskDropdown"]');
+
+      function renderChips(){
+        chipsEl.innerHTML = '';
+        state.tasks.forEach(function(link, idx){
+          const task = tasksById[link.taskId];
+          if(!task) return;
+          const chip = document.createElement('div');
+          chip.className = 'chip';
+          chip.innerHTML =
+            '<span class="chip-name">' + escapeHtml(task.name) + '</span>' +
+            '<span class="badge ' + task.status + '">' + STATUS_LABELS[task.status] + '</span>' +
+            '<div class="seg-buttons">' +
+              '<button type="button" class="seg-btn yes" aria-pressed="' + link.done + '">Yes</button>' +
+              '<button type="button" class="seg-btn no" aria-pressed="' + (!link.done) + '">No</button>' +
+            '</div>' +
+            '<button type="button" class="remove" aria-label="Unlink task">×</button>';
+          const buttons = chip.querySelectorAll('.seg-btn');
+          buttons[0].addEventListener('click', function(){
+            link.done = true;
+            buttons[0].setAttribute('aria-pressed', 'true');
+            buttons[1].setAttribute('aria-pressed', 'false');
             scheduleSave();
           });
-          item.querySelector('button').addEventListener('click', function(){
+          buttons[1].addEventListener('click', function(){
+            link.done = false;
+            buttons[0].setAttribute('aria-pressed', 'false');
+            buttons[1].setAttribute('aria-pressed', 'true');
+            scheduleSave();
+          });
+          chip.querySelector('.remove').addEventListener('click', function(){
             state.tasks.splice(idx, 1);
-            renderTasks();
+            renderChips();
             scheduleSave();
           });
-          taskListEl.appendChild(item);
+          chipsEl.appendChild(chip);
         });
       }
-      renderTasks();
+      renderChips();
+      chipRefreshFns.push(renderChips);
 
-      const taskInput = card.querySelector('[data-role="taskInput"]');
-      function addTask(){
-        const val = taskInput.value.trim();
-        if(!val) return;
-        state.tasks.push({ text: val, done: false });
-        taskInput.value = '';
-        renderTasks();
-        scheduleSave();
+      function closeDropdown(){ dropdownEl.hidden = true; dropdownEl.innerHTML = ''; }
+
+      function openDropdown(){
+        const q = comboInput.value.trim().toLowerCase();
+        const linkedIds = state.tasks.map(function(l){ return l.taskId; });
+        const matches = tasksList.filter(function(t){
+          return linkedIds.indexOf(t.id) === -1 && (!q || t.name.toLowerCase().indexOf(q) !== -1);
+        }).sort(function(a, b){ return (b.createdAt || '').localeCompare(a.createdAt || ''); });
+
+        dropdownEl.innerHTML = '';
+        matches.slice(0, 20).forEach(function(t){
+          const opt = document.createElement('div');
+          opt.className = 'combo-option';
+          opt.innerHTML = '<span>' + escapeHtml(t.name) + '</span><span class="badge ' + t.status + '">' + STATUS_LABELS[t.status] + '</span>';
+          opt.addEventListener('mousedown', function(e){ e.preventDefault(); });
+          opt.addEventListener('click', function(){
+            state.tasks.push({ taskId: t.id, done: false });
+            comboInput.value = '';
+            closeDropdown();
+            renderChips();
+            scheduleSave();
+          });
+          dropdownEl.appendChild(opt);
+        });
+
+        const exact = tasksList.some(function(t){ return t.name.toLowerCase() === q; });
+        if(q && !exact){
+          const createOpt = document.createElement('div');
+          createOpt.className = 'combo-option create';
+          createOpt.textContent = '+ Create task "' + comboInput.value.trim() + '"';
+          createOpt.addEventListener('mousedown', function(e){ e.preventDefault(); });
+          createOpt.addEventListener('click', function(){
+            const name = comboInput.value.trim();
+            createTask(name, 'in_progress').then(function(task){
+              state.tasks.push({ taskId: task.id, done: false });
+              comboInput.value = '';
+              closeDropdown();
+              renderChips();
+              scheduleSave();
+            });
+          });
+          dropdownEl.appendChild(createOpt);
+        }
+
+        dropdownEl.hidden = dropdownEl.children.length === 0;
       }
-      card.querySelector('[data-role="taskAdd"]').addEventListener('click', addTask);
-      taskInput.addEventListener('keydown', function(e){
-        if(e.key === 'Enter'){ e.preventDefault(); addTask(); }
+
+      comboInput.addEventListener('focus', openDropdown);
+      comboInput.addEventListener('input', openDropdown);
+      comboInput.addEventListener('blur', function(){ setTimeout(closeDropdown, 150); });
+      comboInput.addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){
+          e.preventDefault();
+          const firstOpt = dropdownEl.querySelector('.combo-option');
+          if(firstOpt) firstOpt.click();
+        }
       });
     });
   }
