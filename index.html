@@ -43,7 +43,7 @@
   .title-block p{ margin:4px 0 0; color:var(--ink-soft); font-size:0.85rem; }
   #settingsBtn{ background:none; border:1px solid var(--line); color:var(--ink-soft); width:34px; height:34px; border-radius:8px; font-size:1rem; cursor:pointer; flex:none; }
   #settingsBtn:hover{ color:var(--ink); border-color:var(--moss); }
-  button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible{ outline:2px solid var(--moss); outline-offset:2px; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible{ outline:2px solid var(--moss); outline-offset:2px; }
   [hidden]{ display:none !important; }
   .panel{ background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:20px; box-shadow:var(--shadow); }
   .panel h2{ font-family:"Fraunces", Georgia, serif; font-size:1.1rem; font-weight:600; margin:0 0 6px; }
@@ -51,10 +51,11 @@
   .panel ol{ margin:0 0 16px; padding-left:1.2em; color:var(--ink-soft); font-size:0.92rem; line-height:1.6; }
   .panel a{ color:var(--moss-deep); }
   label{ font-size:0.78rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-soft); font-weight:500; }
-  input[type="text"], input[type="password"], select{
+  input[type="text"], input[type="password"], select, textarea{
     width:100%; font-family:inherit; font-size:0.98rem; color:var(--ink); background:var(--paper);
     border:1px solid var(--line); border-radius:8px; padding:11px 12px;
   }
+  textarea{ resize:vertical; }
   .field{ display:flex; flex-direction:column; gap:6px; }
   .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
   .row .field{ flex:1 1 220px; }
@@ -80,7 +81,7 @@
 
   .segmented{ display:flex; gap:8px; flex-wrap:wrap; }
   .seg-group{ display:flex; flex-direction:column; gap:6px; }
-  .seg-buttons{ display:flex; gap:6px; }
+  .seg-buttons{ display:flex; gap:6px; flex-wrap:wrap; }
   .seg-btn{
     font-family:inherit; font-size:0.86rem; background:var(--paper); border:1px solid var(--line); color:var(--ink-soft);
     border-radius:7px; padding:7px 14px; cursor:pointer;
@@ -119,11 +120,16 @@
   .task-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 4px; border-bottom:1px solid var(--line); }
   .task-row:last-child{ border-bottom:none; }
   .task-row-main{ display:flex; flex-direction:column; gap:2px; min-width:0; }
-  .task-row-name{ font-size:0.94rem; font-weight:500; }
+  .task-row-name{ background:none; border:none; padding:0; font:inherit; font-size:0.94rem; font-weight:500; color:var(--ink); text-align:left; cursor:pointer; }
+  .task-row-name:hover{ text-decoration:underline; color:var(--moss-deep); }
   .task-row-date{ font-size:0.76rem; color:var(--ink-soft); }
   .task-row select{ width:auto; flex:none; }
-  .task-row-indent{ padding-left:20px; border-left:2px solid var(--line); margin-left:6px; }
-  .subtask-add input{ flex:1; }
+
+  .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; padding:20px; z-index:50; }
+  .modal-panel{ max-width:520px; width:100%; max-height:82vh; overflow-y:auto; }
+  .history-item{ font-size:0.85rem; padding:7px 0; border-bottom:1px solid var(--line); color:var(--ink-soft); }
+  .history-item:last-child{ border-bottom:none; }
+  .history-item b{ color:var(--ink); font-weight:500; }
 
   footer{ text-align:center; font-size:0.76rem; color:var(--ink-soft); padding-top:8px; }
 </style>
@@ -188,6 +194,10 @@
             <label for="newTaskName">Task name</label>
             <input id="newTaskName" type="text" placeholder="e.g. Refactor billing module">
           </div>
+          <div class="field" style="flex:2 1 240px;">
+            <label for="newTaskDesc">Description (optional)</label>
+            <input id="newTaskDesc" type="text" placeholder="Extra detail">
+          </div>
           <div class="field" style="flex:1 1 160px;">
             <label for="newTaskStatus">Status</label>
             <select id="newTaskStatus">
@@ -206,11 +216,29 @@
           <button class="primary" id="addTaskBtn" type="button">Add task</button>
         </div>
       </div>
-      <div class="tabs" style="border-bottom:none;">
-        <button class="tab-btn" id="taskViewRecentBtn" type="button" aria-selected="true">Recent</button>
-        <button class="tab-btn" id="taskViewTreeBtn" type="button" aria-selected="false">By parent</button>
+
+      <div class="panel" style="margin-top:16px;">
+        <div class="row">
+          <div class="seg-group">
+            <label>Show</label>
+            <div class="seg-buttons" id="scopeFilter">
+              <button type="button" class="seg-btn" data-scope="month" aria-pressed="true">This month</button>
+              <button type="button" class="seg-btn" data-scope="all" aria-pressed="false">All time</button>
+            </div>
+          </div>
+          <div class="seg-group">
+            <label>Status</label>
+            <div class="seg-buttons" id="statusFilter">
+              <button type="button" class="seg-btn" data-status="not_started" aria-pressed="true">Not started</button>
+              <button type="button" class="seg-btn" data-status="in_progress" aria-pressed="true">In progress</button>
+              <button type="button" class="seg-btn" data-status="paused" aria-pressed="true">Paused</button>
+              <button type="button" class="seg-btn" data-status="completed" aria-pressed="true">Completed</button>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="panel">
+
+      <div class="panel" style="margin-top:16px;">
         <div id="taskPageList"></div>
       </div>
     </div>
@@ -223,6 +251,28 @@
   <footer>Your events, your Sheet, your Google account only.</footer>
 </div>
 
+<div class="modal-overlay" id="taskDetailOverlay" hidden>
+  <div class="panel modal-panel">
+    <div class="row" style="justify-content:space-between; align-items:flex-start;">
+      <h2 id="detailName" style="margin:0;"></h2>
+      <button class="ghost" id="closeDetailBtn" type="button">Close</button>
+    </div>
+    <p class="task-row-date" id="detailMeta"></p>
+    <div class="field" style="margin-top:10px;">
+      <label for="detailStatus">Status</label>
+      <select id="detailStatus"></select>
+    </div>
+    <div class="field" style="margin-top:12px;">
+      <label for="detailDescription">Description</label>
+      <textarea id="detailDescription" rows="3" placeholder="Add detail…"></textarea>
+    </div>
+    <div style="margin-top:16px;">
+      <label>History</label>
+      <div id="detailHistory" style="margin-top:6px;"></div>
+    </div>
+  </div>
+</div>
+
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 (function(){
@@ -231,8 +281,11 @@
   const SHEET_STORAGE = 'dt_sheet_id';
   const TAB_NAME = 'Sheet1';
   const TASKS_TAB = 'Tasks';
+  const TASK_HISTORY_TAB = 'TaskHistory';
   const STATUS_ORDER = ['not_started', 'in_progress', 'paused', 'completed'];
   const STATUS_LABELS = { not_started: 'Not started', in_progress: 'In progress', paused: 'Paused', completed: 'Completed' };
+  const TASKS_HEADER = ['TaskID', 'Name', 'Description', 'Status', 'ParentID', 'CreatedAt', 'UpdatedAt'];
+  const TASK_HISTORY_HEADER = ['TaskID', 'FromStatus', 'ToStatus', 'ChangedAt'];
 
   const setup = document.getElementById('setup');
   const settingsPanel = document.getElementById('settingsPanel');
@@ -252,19 +305,27 @@
   const historyContent = document.getElementById('historyContent');
   const taskPageList = document.getElementById('taskPageList');
   const newTaskName = document.getElementById('newTaskName');
+  const newTaskDesc = document.getElementById('newTaskDesc');
   const newTaskStatus = document.getElementById('newTaskStatus');
   const newTaskParent = document.getElementById('newTaskParent');
-  const taskViewRecentBtn = document.getElementById('taskViewRecentBtn');
-  const taskViewTreeBtn = document.getElementById('taskViewTreeBtn');
+  const taskDetailOverlay = document.getElementById('taskDetailOverlay');
+  const detailName = document.getElementById('detailName');
+  const detailMeta = document.getElementById('detailMeta');
+  const detailStatus = document.getElementById('detailStatus');
+  const detailDescription = document.getElementById('detailDescription');
+  const detailHistory = document.getElementById('detailHistory');
+  const closeDetailBtn = document.getElementById('closeDetailBtn');
 
   let tokenClient = null;
   let accessToken = null;
   let sheetId = null;
   let logRows = []; // {row, date, eventId, title, start, attended, productive, tasks:[{taskId,done}]}
-  let tasksList = []; // {row, id, name, status, parentId, createdAt, updatedAt}
+  let tasksList = []; // {row, id, name, description, status, parentId, createdAt, updatedAt}
   let tasksById = {};
+  let taskHistoryByTaskId = {};
   let saveTimers = {};
-  let taskViewMode = 'recent';
+  let taskFilterScope = 'month'; // 'month' | 'all'
+  let taskFilterStatuses = new Set(STATUS_ORDER);
 
   function getSheetId(){ try{ return localStorage.getItem(SHEET_STORAGE) || ''; }catch(e){ return ''; } }
   function setSheetId(v){ try{ localStorage.setItem(SHEET_STORAGE, v); }catch(e){} }
@@ -295,6 +356,12 @@
 
   function generateId(){
     return 't_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  function colLetter(n){
+    let s = '';
+    while(n > 0){ const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); }
+    return s;
   }
 
   function todayStr(d){
@@ -443,7 +510,7 @@
       apiFetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&timeMin=' +
         encodeURIComponent(isoWithOffset(startOfDay)) + '&timeMax=' + encodeURIComponent(isoWithOffset(endOfDay))),
       ensureHeader().then(loadLogRows),
-      ensureTasksSheet().then(loadTasks)
+      ensureAppSheets().then(function(){ return Promise.all([loadTasks(), loadTaskHistory()]); })
     ]).then(function(results){
       const events = (results[0].items || []).filter(function(e){ return e.start && (e.start.dateTime || e.start.date); });
       renderEvents(events);
@@ -525,48 +592,120 @@
     }
   }
 
-  // ---------- Tasks master list ----------
+  // ---------- Schema migration ----------
+  // Reads whatever header a tab currently has and remaps existing rows into the
+  // expected column layout by field name, so adding/reordering columns later
+  // never requires clearing data by hand.
 
-  function ensureTasksSheet(){
+  function migrateSheetSchema(tabName, expectedHeader){
+    return apiFetch(sheetRangeUrl(tabName + '!A1:Z1')).then(function(data){
+      const existingHeader = (data.values && data.values[0]) || [];
+      const lastCol = colLetter(expectedHeader.length);
+
+      if(existingHeader.length === 0){
+        return apiFetch(sheetRangeUrl(tabName + '!A1:' + lastCol + '1') + '?valueInputOption=RAW', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values: [expectedHeader] })
+        });
+      }
+
+      const same = existingHeader.length === expectedHeader.length &&
+        existingHeader.every(function(h, i){ return h === expectedHeader[i]; });
+      if(same) return;
+
+      return apiFetch(sheetRangeUrl(tabName + '!A2:Z5000')).then(function(rowsData){
+        const rows = rowsData.values || [];
+        const remapped = rows.map(function(r){
+          const obj = {};
+          existingHeader.forEach(function(h, i){ obj[h] = r[i] !== undefined ? r[i] : ''; });
+          return expectedHeader.map(function(h){ return obj[h] !== undefined ? obj[h] : ''; });
+        });
+        const allValues = [expectedHeader].concat(remapped);
+        return apiFetch(sheetRangeUrl(tabName + '!A1:' + lastCol + allValues.length) + '?valueInputOption=RAW', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values: allValues })
+        });
+      });
+    });
+  }
+
+  // ---------- Tasks + task history ----------
+
+  function ensureAppSheets(){
     return apiFetch('https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '?fields=sheets.properties.title')
       .then(function(meta){
         const titles = (meta.sheets || []).map(function(s){ return s.properties.title; });
-        if(titles.indexOf(TASKS_TAB) === -1){
-          return apiFetch('https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + ':batchUpdate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ requests: [{ addSheet: { properties: { title: TASKS_TAB } } }] })
-          });
-        }
-      }).then(function(){
-        return apiFetch(sheetRangeUrl(TASKS_TAB + '!A1:F1')).then(function(data){
-          if(data.values && data.values.length) return;
-          return apiFetch(sheetRangeUrl(TASKS_TAB + '!A1:F1') + '?valueInputOption=RAW', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ values: [['TaskID','Name','Status','ParentID','CreatedAt','UpdatedAt']] })
-          });
+        const requests = [];
+        if(titles.indexOf(TASKS_TAB) === -1) requests.push({ addSheet: { properties: { title: TASKS_TAB } } });
+        if(titles.indexOf(TASK_HISTORY_TAB) === -1) requests.push({ addSheet: { properties: { title: TASK_HISTORY_TAB } } });
+        if(requests.length === 0) return;
+        return apiFetch('https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + ':batchUpdate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requests: requests })
         });
+      }).then(function(){
+        return Promise.all([
+          migrateSheetSchema(TASKS_TAB, TASKS_HEADER),
+          migrateSheetSchema(TASK_HISTORY_TAB, TASK_HISTORY_HEADER)
+        ]);
       });
   }
 
   function loadTasks(){
-    return apiFetch(sheetRangeUrl(TASKS_TAB + '!A2:F5000')).then(function(data){
+    return apiFetch(sheetRangeUrl(TASKS_TAB + '!A2:G5000')).then(function(data){
       tasksList = (data.values || []).map(function(r, i){
-        return { row: i + 2, id: r[0] || '', name: r[1] || '', status: r[2] || 'not_started', parentId: r[3] || '', createdAt: r[4] || '', updatedAt: r[5] || '' };
+        return {
+          row: i + 2, id: r[0] || '', name: r[1] || '', description: r[2] || '',
+          status: r[3] || 'not_started', parentId: r[4] || '', createdAt: r[5] || '', updatedAt: r[6] || ''
+        };
       });
       tasksById = {};
       tasksList.forEach(function(t){ tasksById[t.id] = t; });
     });
   }
 
-  function createTask(name, status, parentId){
+  function loadTaskHistory(){
+    return apiFetch(sheetRangeUrl(TASK_HISTORY_TAB + '!A2:D5000')).then(function(data){
+      taskHistoryByTaskId = {};
+      (data.values || []).forEach(function(r){
+        const entry = { taskId: r[0] || '', from: r[1] || '', to: r[2] || '', changedAt: r[3] || '' };
+        if(!taskHistoryByTaskId[entry.taskId]) taskHistoryByTaskId[entry.taskId] = [];
+        taskHistoryByTaskId[entry.taskId].push(entry);
+      });
+    });
+  }
+
+  function logTaskHistory(taskId, fromStatus, toStatus, changedAt){
+    const entry = { taskId: taskId, from: fromStatus, to: toStatus, changedAt: changedAt };
+    return apiFetch(sheetRangeUrl(TASK_HISTORY_TAB + '!A1') + ':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [[taskId, fromStatus, toStatus, changedAt]] })
+    }).then(function(){
+      if(!taskHistoryByTaskId[taskId]) taskHistoryByTaskId[taskId] = [];
+      taskHistoryByTaskId[taskId].push(entry);
+    });
+  }
+
+  function saveTaskRow(task){
+    const range = TASKS_TAB + '!A' + task.row + ':G' + task.row;
+    return apiFetch(sheetRangeUrl(range) + '?valueInputOption=RAW', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [[task.id, task.name, task.description || '', task.status, task.parentId || '', task.createdAt, task.updatedAt]] })
+    });
+  }
+
+  function createTask(name, description, status, parentId){
     const now = new Date().toISOString();
-    const task = { id: generateId(), name: name, status: status, parentId: parentId || '', createdAt: now, updatedAt: now };
+    const task = { id: generateId(), name: name, description: description || '', status: status, parentId: parentId || '', createdAt: now, updatedAt: now };
     return apiFetch(sheetRangeUrl(TASKS_TAB + '!A1') + ':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [[task.id, task.name, task.status, task.parentId, task.createdAt, task.updatedAt]] })
+      body: JSON.stringify({ values: [[task.id, task.name, task.description, task.status, task.parentId, task.createdAt, task.updatedAt]] })
     }).then(function(resp){
       let row = tasksList.length + 2;
       const m = resp.updates && resp.updates.updatedRange && resp.updates.updatedRange.match(/![A-Z]+(\d+)/);
@@ -574,19 +713,24 @@
       task.row = row;
       tasksList.push(task);
       tasksById[task.id] = task;
-      return task;
+      return logTaskHistory(task.id, '', task.status, now).then(function(){ return task; });
     });
   }
 
   function updateTaskStatus(task, newStatus){
+    const oldStatus = task.status;
+    if(oldStatus === newStatus) return Promise.resolve();
     task.status = newStatus;
     task.updatedAt = new Date().toISOString();
-    const range = TASKS_TAB + '!A' + task.row + ':F' + task.row;
-    return apiFetch(sheetRangeUrl(range) + '?valueInputOption=RAW', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [[task.id, task.name, task.status, task.parentId, task.createdAt, task.updatedAt]] })
+    return saveTaskRow(task).then(function(){
+      return logTaskHistory(task.id, oldStatus, newStatus, task.updatedAt);
     });
+  }
+
+  function updateTaskDescription(task, newDescription){
+    task.description = newDescription;
+    task.updatedAt = new Date().toISOString();
+    return saveTaskRow(task);
   }
 
   // A task with children is a "parent" and isn't itself directly attachable to an event.
@@ -606,6 +750,57 @@
     return Promise.resolve();
   }
 
+  // ---------- Task detail modal ----------
+
+  function renderDetailHistory(task){
+    const entries = (taskHistoryByTaskId[task.id] || []).slice()
+      .sort(function(a, b){ return (a.changedAt || '').localeCompare(b.changedAt || ''); });
+    if(entries.length === 0){ detailHistory.innerHTML = '<p class="empty">No history yet.</p>'; return; }
+    detailHistory.innerHTML = entries.map(function(h){
+      const label = h.from
+        ? (STATUS_LABELS[h.from] || h.from) + ' → <b>' + (STATUS_LABELS[h.to] || h.to) + '</b>'
+        : 'Created as <b>' + (STATUS_LABELS[h.to] || h.to) + '</b>';
+      const when = h.changedAt ? new Date(h.changedAt).toLocaleString() : '';
+      return '<div class="history-item">' + escapeHtml(when) + ' — ' + label + '</div>';
+    }).join('');
+  }
+
+  function openTaskDetail(task){
+    detailName.textContent = task.name;
+    detailMeta.textContent = 'Created ' + (task.createdAt ? new Date(task.createdAt).toLocaleString() : '') +
+      (task.parentId && tasksById[task.parentId] ? ' · Subtask of ' + tasksById[task.parentId].name : '');
+    detailStatus.innerHTML = STATUS_ORDER.map(function(s){
+      return '<option value="' + s + '"' + (s === task.status ? ' selected' : '') + '>' + STATUS_LABELS[s] + '</option>';
+    }).join('');
+    detailDescription.value = task.description || '';
+    renderDetailHistory(task);
+    taskDetailOverlay.hidden = false;
+
+    detailStatus.onchange = function(e){
+      updateTaskStatus(task, e.target.value).then(function(){
+        return maybeCompleteParent(task);
+      }).then(function(){
+        renderDetailHistory(task);
+        renderTasksPage();
+        renderChipsEverywhere();
+      });
+    };
+    let descTimer;
+    detailDescription.oninput = function(){
+      clearTimeout(descTimer);
+      descTimer = setTimeout(function(){
+        updateTaskDescription(task, detailDescription.value);
+      }, 600);
+    };
+  }
+
+  closeDetailBtn.addEventListener('click', function(){ taskDetailOverlay.hidden = true; });
+  taskDetailOverlay.addEventListener('click', function(e){
+    if(e.target === taskDetailOverlay) taskDetailOverlay.hidden = true;
+  });
+
+  // ---------- Tasks page ----------
+
   function populateParentSelect(){
     const current = newTaskParent.value;
     const topLevel = tasksList.filter(function(t){ return !t.parentId; })
@@ -615,21 +810,21 @@
     if(topLevel.some(function(t){ return t.id === current; })) newTaskParent.value = current;
   }
 
-  function renderTaskRow(t, opts){
-    opts = opts || {};
+  function renderTaskRow(t){
     const row = document.createElement('div');
-    row.className = 'task-row' + (opts.indent ? ' task-row-indent' : '');
-    const parentLabel = (opts.showParentLabel && t.parentId && tasksById[t.parentId])
+    row.className = 'task-row';
+    const parentLabel = (t.parentId && tasksById[t.parentId])
       ? ('<span class="task-row-date">Subtask of ' + escapeHtml(tasksById[t.parentId].name) + '</span>') : '';
     row.innerHTML =
       '<div class="task-row-main">' +
-        '<span class="task-row-name">' + escapeHtml(t.name) + '</span>' +
+        '<button type="button" class="task-row-name">' + escapeHtml(t.name) + '</button>' +
         '<span class="task-row-date">Created ' + (t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '') + '</span>' +
         parentLabel +
       '</div>' +
       '<select>' + STATUS_ORDER.map(function(s){
         return '<option value="' + s + '"' + (s === t.status ? ' selected' : '') + '>' + STATUS_LABELS[s] + '</option>';
       }).join('') + '</select>';
+    row.querySelector('.task-row-name').addEventListener('click', function(){ openTaskDetail(t); });
     row.querySelector('select').addEventListener('change', function(e){
       updateTaskStatus(t, e.target.value).then(function(){
         return maybeCompleteParent(t);
@@ -641,56 +836,45 @@
     return row;
   }
 
-  function renderRecentView(container){
-    tasksList.slice().sort(function(a, b){ return (b.createdAt || '').localeCompare(a.createdAt || ''); })
-      .forEach(function(t){ container.appendChild(renderTaskRow(t, { showParentLabel: true })); });
-  }
-
-  function renderTreeView(container){
-    const topLevel = tasksList.filter(function(t){ return !t.parentId; })
-      .sort(function(a, b){ return (b.createdAt || '').localeCompare(a.createdAt || ''); });
-    topLevel.forEach(function(parent){
-      container.appendChild(renderTaskRow(parent, {}));
-      tasksList.filter(function(t){ return t.parentId === parent.id; })
-        .sort(function(a, b){ return (a.createdAt || '').localeCompare(b.createdAt || ''); })
-        .forEach(function(sub){ container.appendChild(renderTaskRow(sub, { indent: true })); });
-
-      const addRow = document.createElement('div');
-      addRow.className = 'row subtask-add task-row-indent';
-      addRow.innerHTML = '<input type="text" placeholder="Add subtask"><button class="ghost" type="button">Add</button>';
-      const input = addRow.querySelector('input');
-      function addSub(){
-        const name = input.value.trim();
-        if(!name) return;
-        createTask(name, 'not_started', parent.id).then(function(){ renderTasksPage(); });
+  function applyTaskFilters(list){
+    const now = new Date();
+    return list.filter(function(t){
+      if(!taskFilterStatuses.has(t.status)) return false;
+      if(taskFilterScope === 'month'){
+        if(!t.createdAt) return false;
+        const d = new Date(t.createdAt);
+        if(d.getFullYear() !== now.getFullYear() || d.getMonth() !== now.getMonth()) return false;
       }
-      addRow.querySelector('button').addEventListener('click', addSub);
-      input.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); addSub(); } });
-      container.appendChild(addRow);
+      return true;
     });
   }
 
   function renderTasksPage(){
     populateParentSelect();
     taskPageList.innerHTML = '';
-    if(tasksList.length === 0){
-      taskPageList.innerHTML = '<p class="empty">No tasks yet.</p>';
+    const filtered = applyTaskFilters(tasksList)
+      .sort(function(a, b){ return (b.createdAt || '').localeCompare(a.createdAt || ''); });
+    if(filtered.length === 0){
+      taskPageList.innerHTML = '<p class="empty">No tasks match the current filters.</p>';
       return;
     }
-    if(taskViewMode === 'tree') renderTreeView(taskPageList); else renderRecentView(taskPageList);
+    filtered.forEach(function(t){ taskPageList.appendChild(renderTaskRow(t)); });
   }
 
-  taskViewRecentBtn.addEventListener('click', function(){
-    taskViewMode = 'recent';
-    taskViewRecentBtn.setAttribute('aria-selected', 'true');
-    taskViewTreeBtn.setAttribute('aria-selected', 'false');
-    renderTasksPage();
+  document.querySelectorAll('#scopeFilter .seg-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      taskFilterScope = btn.dataset.scope;
+      document.querySelectorAll('#scopeFilter .seg-btn').forEach(function(b){ b.setAttribute('aria-pressed', String(b === btn)); });
+      renderTasksPage();
+    });
   });
-  taskViewTreeBtn.addEventListener('click', function(){
-    taskViewMode = 'tree';
-    taskViewTreeBtn.setAttribute('aria-selected', 'true');
-    taskViewRecentBtn.setAttribute('aria-selected', 'false');
-    renderTasksPage();
+  document.querySelectorAll('#statusFilter .seg-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const s = btn.dataset.status;
+      if(taskFilterStatuses.has(s)){ taskFilterStatuses.delete(s); btn.setAttribute('aria-pressed', 'false'); }
+      else { taskFilterStatuses.add(s); btn.setAttribute('aria-pressed', 'true'); }
+      renderTasksPage();
+    });
   });
 
   let chipRefreshFns = [];
@@ -701,8 +885,9 @@
   document.getElementById('addTaskBtn').addEventListener('click', function(){
     const name = newTaskName.value.trim();
     if(!name) return;
-    createTask(name, newTaskStatus.value, newTaskParent.value).then(function(){
+    createTask(name, newTaskDesc.value.trim(), newTaskStatus.value, newTaskParent.value).then(function(){
       newTaskName.value = '';
+      newTaskDesc.value = '';
       newTaskStatus.value = 'not_started';
       renderTasksPage();
     });
@@ -872,7 +1057,7 @@
           createOpt.addEventListener('mousedown', function(e){ e.preventDefault(); });
           createOpt.addEventListener('click', function(){
             const name = comboInput.value.trim();
-            createTask(name, 'in_progress').then(function(task){
+            createTask(name, '', 'in_progress', '').then(function(task){
               state.tasks.push({ taskId: task.id, done: false });
               comboInput.value = '';
               closeDropdown();
@@ -899,7 +1084,7 @@
     });
   }
 
-  // ---------- History view ----------
+  // ---------- Day-log history view ----------
 
   function renderHistory(){
     historyContent.innerHTML = '';
